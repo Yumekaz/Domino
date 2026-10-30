@@ -1,0 +1,32 @@
+.motion-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  background: transparent;
+  color: #9eb1cb;
+  border: 1px solid #34465e;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font: 10px 'IBM Plex Mono';
+  cursor: pointer;
+}
+.motion-toggle:hover {
+  color: #f1f5fb;
+  border-color: #6f8fba;
+}
+.motion-toggle[aria-pressed='true'] {
+  color: #ffc49d;
+  border-color: #8b613e;
+}
+.motion-toggle:disabled {
+  cursor: default;
+}
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  animation: none !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}

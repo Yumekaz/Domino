@@ -1,0 +1,79 @@
+body {
+  background: #0b1422;
+  color: #c0d3ed;
+}
+.renderer-harness {
+  padding: 25px 35px;
+  max-width: 1440px;
+  margin: auto;
+}
+.renderer-harness > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #77613b;
+  background: #292214;
+  padding: 20px;
+}
+.renderer-harness > header strong {
+  font: 12px 'IBM Plex Mono';
+  color: #f4c68d;
+}
+.renderer-harness > header p {
+  font-size: 12px;
+  margin-top: 12px;
+  color: #c1aa87;
+}
+.renderer-harness > nav {
+  display: flex;
+  gap: 20px;
+  padding: 20px 0;
+  align-items: end;
+}
+.renderer-harness label {
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.renderer-harness select,
+.renderer-harness > nav > button {
+  padding: 10px 15px;
+  background: #1c3558;
+  color: #c2d9f7;
+  border: 1px solid #5273a0;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.renderer-harness > nav > button {
+  margin-left: auto;
+}
+.renderer-harness .graph-canvas {
+  height: 470px;
+  background: #0c1728;
+}
+.renderer-harness .graph-controls {
+  background: #163356;
+  color: #dce9fc;
+}
+.renderer-harness .graph-canvas-caption {
+  color: #b4c9e6;
+}
+.harness-scene {
+  height: 470px;
+}
+.harness-scene .domino-world {
+  height: 470px;
+}
+.renderer-harness > pre {
+  padding: 25px;
+  margin-top: 20px;
+  background: #14243b;
+  border: 1px solid #38516f;
+  border-radius: 4px;
+  font: 11px/1.7 'IBM Plex Mono';
+  white-space: pre-wrap;
+}
+.renderer-harness > nav > button:disabled {
+  opacity: 0.5;
+}
