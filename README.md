@@ -40,6 +40,7 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 
 ## Handoff
 
+- [Spatial graph revision and the test-harness/product distinction](docs/frontend/network/GRAPH.md)
 - [Current investigation studio, desktop critique, and verification](docs/frontend/studio/HANDOFF.md)
 - [Previous desktop north star and iteration evidence](docs/frontend/desktop-northstar/DESKTOP_NORTHSTAR.md)
 - [Design direction and reference research](docs/frontend/DESIGN.md)

@@ -1,0 +1,531 @@
+.network-canvas {
+  position: relative;
+  overflow: hidden;
+  background: #0b1320;
+  border-radius: 6px;
+}
+.network-canvas::before {
+  display: none !important;
+}
+.workspace .network-canvas {
+  padding-top: 0;
+}
+.network-viewbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 17px;
+  border-bottom: 1px solid #233950;
+  background: #101d2e;
+}
+.network-scope {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 11px 'IBM Plex Mono';
+  letter-spacing: 0.4px;
+  color: #a2b9d8;
+}
+.network-scope > i {
+  height: 5px;
+  width: 5px;
+  background: #ffad78;
+  border-radius: 50%;
+}
+.network-scope > b {
+  font-weight: 400;
+  color: #426083;
+}
+.network-scope > small {
+  font-size: 9px;
+  color: #6e8aac;
+  margin-left: 6px;
+}
+.network-switch {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: #0b1523;
+  border: 1px solid #2f4662;
+  border-radius: 5px;
+}
+.network-switch > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #8fa9cc;
+}
+.network-switch > button[aria-pressed='true'] {
+  background: #213d63;
+  color: #dce9fc;
+  border-color: #44638d;
+}
+.network-canvas .graph-canvas {
+  cursor: grab;
+  background-color: #0b1320 !important;
+  background-image:
+    radial-gradient(ellipse at 48% 45%, #1c39603d, transparent 68%),
+    radial-gradient(#2b3f5838 0.65px, transparent 0.65px) !important;
+  background-size:
+    auto,
+    29px 29px !important;
+}
+.network-canvas .graph-canvas:active {
+  cursor: grabbing;
+}
+.network-canvas .network-navigation {
+  position: absolute !important;
+  left: 17px !important;
+  right: auto !important;
+  top: 75px !important;
+  bottom: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  border: 1px solid #3a5678;
+  border-radius: 6px;
+  background: #13243b !important;
+  box-shadow: 0 8px 25px #0003;
+  padding: 3px;
+  z-index: 3;
+  gap: 2px;
+}
+.network-navigation > span {
+  font: 8px 'IBM Plex Mono';
+  text-align: center;
+  color: #95aecf;
+  min-width: 31px;
+  padding: 4px 0;
+}
+.network-navigation > button {
+  height: 30px;
+  width: 31px;
+  border: 0 !important;
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  color: #a6c0e4 !important;
+  background: transparent;
+}
+.network-navigation > button:hover:not(:disabled) {
+  background: #294b77 !important;
+  color: #fff !important;
+}
+.network-navigation > button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.network-detail-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 13px 18px;
+  background: #0e1b2c;
+  border-top: 1px solid #263e58;
+  color: #7594b9;
+  font-size: 9px;
+}
+.network-detail-options > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9db3d1;
+  white-space: nowrap;
+}
+.network-detail-options input {
+  width: 12px;
+  height: 12px;
+  accent-color: #5c8de0;
+}
+.network-detail-options > span {
+  font-size: 9px;
+  text-align: right;
+}
+.renderer-test-watermark {
+  position: absolute;
+  left: 50%;
+  top: 80px;
+  transform: translateX(-50%);
+  border: 1px solid #a7804b;
+  background: #332719ed;
+  color: #ffd59f;
+  z-index: 4;
+  text-align: center;
+  padding: 11px 19px;
+  border-radius: 4px;
+  font: 10px 'IBM Plex Mono';
+  pointer-events: none;
+  white-space: nowrap;
+}
+.renderer-test-watermark > span {
+  display: block;
+  font-size: 9px;
+  margin-top: 7px;
+  color: #cfb38d;
+}
+.desktop-workspace .network-canvas .graph-canvas {
+  height: 570px;
+}
+.desktop-workspace .overview-investigation .network-canvas .graph-canvas {
+  height: 360px;
+}
+.desktop-workspace .investigation-studio.is-expanded .network-canvas .graph-canvas {
+  height: calc(100vh - 395px);
+  min-height: 330px;
+}
+.desktop-workspace .network-map-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  padding: 20px 0 16px;
+}
+.network-map-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.network-map-heading strong {
+  font: 400 20px 'Space Grotesk Variable';
+  letter-spacing: -0.5px;
+  color: #c4d8f5;
+}
+.network-map-heading span {
+  font-size: 11px;
+  color: #7e9fc8;
+}
+.network-map-heading > .badge {
+  background: #1d2e48;
+  border-color: #395372;
+  color: #91afd6;
+}
+.desktop-workspace .graph-legend {
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 10px;
+}
+.desktop-workspace .graph-legend .diamond {
+  border-radius: 50%;
+  transform: none;
+}
+.network-limits {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+  font-size: 10px;
+  line-height: 1.8;
+  color: #7b9bc2;
+  padding: 14px 0;
+}
+.network-limits > span:first-child {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+.network-layout-tag {
+  font: 9px 'IBM Plex Mono';
+  color: #8ba6ca;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.renderer-harness .network-canvas .graph-canvas {
+  height: 470px;
+}
+.renderer-harness .network-navigation {
+  left: 14px !important;
+  top: 75px !important;
+}
+.desktop-workspace .memory-network-page {
+  position: relative;
+}
+.desktop-workspace .memory-network-page > .page-title {
+  padding-right: 430px;
+  margin-bottom: 25px;
+}
+.desktop-workspace .memory-network-page > .page-title h1 {
+  font-size: 40px;
+}
+.desktop-workspace .memory-network-page > .graph-search-form {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  width: 395px;
+  margin: 0;
+  padding: 7px 9px 7px 14px;
+}
+.desktop-workspace .memory-network-page > .graph-search-form input {
+  font-size: 11px;
+}
+.desktop-workspace .memory-network-page .graph-toolbar {
+  margin-top: 0;
+}
+.desktop-workspace .memory-network-page .network-map-heading {
+  padding: 8px 0 17px;
+}
+.desktop-workspace .memory-network-page .network-map-heading strong {
+  font-size: 16px;
+}
+.desktop-workspace .memory-network-page .network-map-heading span {
+  display: none;
+}
+.desktop-workspace .memory-network-page .bounded-note {
+  margin-block: 10px 17px;
+}
+.desktop-workspace .memory-network-page .graph-board {
+  padding-top: 0;
+}
+.desktop-workspace .memory-network-page .graph-layout.with-selection {
+  grid-template-columns: minmax(0, 1fr) 310px;
+}
+.desktop-workspace .memory-network-page .edge-inspector {
+  background: #111e30;
+  border-color: #385475;
+  color: #a6bedf;
+  --ink: #d1e0f5;
+  --muted: #a0b6d4;
+  --line: #304764;
+}
+.desktop-workspace .memory-network-page .edge-inspector h2 {
+  color: #dfebfb;
+  font-size: 26px;
+}
+.desktop-workspace .memory-network-page .edge-inspector > .eyebrow {
+  color: #8ba7cd;
+}
+.desktop-workspace .memory-network-page .edge-inspector > p {
+  color: #b1c8e6;
+}
+.desktop-workspace .memory-network-page .edge-inspector blockquote {
+  background: #19314e;
+  border-color: #6389bd;
+  color: #b0c6e4;
+}
+.desktop-workspace .memory-network-page .edge-inspector dd {
+  color: #adbfda;
+}
+.desktop-workspace .memory-network-page .edge-inspector dt {
+  color: #819abd;
+}
+.desktop-workspace .memory-network-page .edge-inspector .muted {
+  color: #8ba6cc;
+  font-size: 11px;
+}
+.desktop-workspace .memory-network-page .expand-button {
+  background: #1a314f;
+  border-color: #42618a;
+  color: #c2d7f4;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.network-layout-note {
+  padding: 10px 17px;
+  background: #302518;
+  border-top: 1px solid #755635;
+  color: #dbb58d;
+  font-size: 11px;
+}
+.desktop-workspace .memory-network-page > .page-title {
+  display: block;
+}
+.desktop-workspace .memory-network-page > .page-title > .button {
+  margin-top: 13px;
+  padding: 8px 12px;
+  min-height: 32px;
+  font-size: 10px;
+}
+.desktop-workspace .memory-network-page.graph-is-expanded {
+  position: fixed;
+  inset: 16px;
+  z-index: 70;
+  background: #0b1422;
+  border: 1px solid #3b5578;
+  border-radius: 8px;
+  padding: 24px;
+  overflow: auto;
+  box-shadow: 0 0 0 25px #040a13e6;
+  scrollbar-width: thin;
+  scrollbar-color: #42648c transparent;
+}
+.desktop-workspace .graph-is-expanded > .page-title {
+  margin: 0 0 17px;
+  padding-right: 430px;
+}
+.desktop-workspace .graph-is-expanded > .page-title h1 {
+  font-size: 30px;
+  margin: 9px 0;
+  letter-spacing: -1.1px;
+}
+.desktop-workspace .graph-is-expanded > .page-title p {
+  font-size: 12px;
+}
+.desktop-workspace .graph-is-expanded > .graph-search-form {
+  right: 24px;
+  top: 31px;
+}
+.desktop-workspace .graph-is-expanded .network-canvas .graph-canvas {
+  height: calc(100vh - 440px);
+  min-height: 300px;
+}
+.desktop-workspace .memory-network-page.graph-is-expanded {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.desktop-workspace .graph-is-expanded > .page-title {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 62px;
+  padding-right: 230px;
+  margin-bottom: 18px;
+}
+.desktop-workspace .graph-is-expanded > .page-title p {
+  display: none;
+}
+.desktop-workspace .graph-is-expanded > .page-title > .button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  margin: 0;
+}
+.desktop-workspace .graph-is-expanded > .graph-search-form {
+  top: 109px;
+  width: 350px;
+  padding-block: 3px;
+}
+.desktop-workspace .graph-is-expanded > .graph-search-form .button {
+  min-height: 33px;
+  padding: 8px 10px;
+}
+.desktop-workspace .graph-is-expanded .graph-toolbar {
+  width: calc(100% - 380px);
+  min-height: 40px;
+  flex-shrink: 0;
+}
+.desktop-workspace .graph-is-expanded .graph-toolbar .check-label {
+  margin-left: 12px;
+}
+.desktop-workspace .graph-is-expanded .graph-filters {
+  margin-block: 9px 7px;
+  padding-block: 0;
+  border: 0;
+  flex-shrink: 0;
+}
+.desktop-workspace .graph-is-expanded .warnings {
+  margin-block: 8px;
+  padding-block: 8px;
+  flex-shrink: 0;
+}
+.desktop-workspace .graph-is-expanded .bounded-note {
+  margin-block: 7px 10px;
+  flex-shrink: 0;
+}
+.desktop-workspace .graph-is-expanded .network-map-heading {
+  display: none;
+}
+.desktop-workspace .graph-is-expanded .graph-layout {
+  flex: 1;
+  min-height: 250px;
+  margin-top: 6px;
+  grid-template-rows: minmax(0, 1fr);
+}
+.desktop-workspace .graph-is-expanded .graph-board {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  height: 100%;
+  overflow: hidden;
+}
+.desktop-workspace .graph-is-expanded .network-canvas {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.desktop-workspace .graph-is-expanded .network-viewbar,
+.desktop-workspace .graph-is-expanded .network-detail-options,
+.desktop-workspace .graph-is-expanded .graph-legend {
+  flex-shrink: 0;
+}
+.desktop-workspace .graph-is-expanded .network-viewbar {
+  padding-block: 7px;
+}
+.desktop-workspace .graph-is-expanded .network-detail-options {
+  padding-block: 9px;
+}
+.desktop-workspace .graph-is-expanded .network-canvas .graph-canvas {
+  flex: 1;
+  min-height: 150px;
+  height: 0;
+}
+.desktop-workspace .graph-is-expanded .graph-accessible-list {
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow: auto;
+  margin-top: 11px;
+}
+.desktop-workspace .graph-is-expanded .graph-layout > :last-child:not(.graph-board) {
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+@media (max-width: 1100px) {
+  .desktop-workspace .memory-network-page > .page-title {
+    padding-right: 0;
+  }
+  .desktop-workspace .memory-network-page > .graph-search-form {
+    position: static;
+    width: 100%;
+    margin-bottom: 18px;
+  }
+  .desktop-workspace .memory-network-page .graph-layout.with-selection {
+    grid-template-columns: 1fr;
+  }
+  .desktop-workspace .memory-network-page .edge-inspector {
+    max-width: none;
+  }
+}
+@media (max-width: 900px) {
+  .network-scope > small {
+    display: none;
+  }
+  .network-viewbar {
+    padding: 12px;
+    gap: 10px;
+  }
+  .network-scope {
+    font-size: 8px;
+    gap: 6px;
+  }
+  .network-switch > button {
+    font-size: 9px;
+    padding: 5px 7px;
+  }
+  .network-switch > button > svg {
+    display: none;
+  }
+  .network-detail-options {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .network-detail-options > span {
+    text-align: left;
+  }
+  .desktop-workspace .network-canvas .graph-canvas {
+    height: 490px;
+  }
+  .network-limits {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}

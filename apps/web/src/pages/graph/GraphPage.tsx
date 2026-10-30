@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, Expand, Network, Search } from 'lucide-react';
+import { ArrowUpRight, Expand, Network, Search, Maximize2, Minimize2 } from 'lucide-react';
 import { api, fixtureMode } from '../../api/client';
 import type { Graph } from '../../api/schemas';
 import {
@@ -22,16 +22,15 @@ const GraphCanvas = lazy(() => import('./GraphCanvas'));
 export default function GraphPage() {
   const { repoId, repository, focus, setFocus } = useRepo();
   const [selection, setSelection] = useState<GraphSelection>(null);
-  const [depth, setDepth] = useState<1 | 2 | 3>(1);
+  const [expanded, setExpanded] = useState(false);
+  const [depth, setDepth] = useState<1 | 2 | 3>(2);
   const [domain, setDomain] = useState('all');
   const [kind, setKind] = useState('all');
   const [relationship, setRelationship] = useState('all');
   const [verification, setVerification] = useState('all');
   const [date, setDate] = useState('');
   const [inferred, setInferred] = useState(false);
-  const [layout, setLayout] = useState(() =>
-    window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'breadthfirst',
-  );
+  const [layout, setLayout] = useState('fcose');
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const root = focus || (fixtureMode ? 'auth' : '');
@@ -73,11 +72,38 @@ export default function GraphPage() {
   const edge =
     selection?.kind === 'edge' ? graph?.edges.find((e) => e.id === selection.id) : undefined;
   return (
-    <>
+    <section
+      className={`memory-network-page ${expanded ? 'graph-is-expanded' : ''}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setExpanded(false);
+        if (expanded && event.key === 'Tab') {
+          const controls = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),summary',
+            ),
+          ).filter((element) => element.getClientRects().length);
+          const first = controls[0],
+            last = controls.at(-1);
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+          }
+        }
+      }}
+    >
       <PageTitle
         number="05"
         title="Nothing is isolated"
         description="Explore a bounded neighborhood. Every relationship keeps its origin attached."
+        action={
+          <Button variant="secondary" onClick={() => setExpanded(!expanded)}>
+            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            {expanded ? 'Close map focus' : 'Expand map'}
+          </Button>
+        }
       />
       <form
         className="graph-search-form"
@@ -149,7 +175,9 @@ export default function GraphPage() {
         <label>
           Layout{' '}
           <select value={layout} onChange={(e) => setLayout(e.target.value)}>
-            <option value="breadthfirst">Layered</option>
+            <option value="fcose">Spatial network</option>
+            <option value="concentric">Radial focus</option>
+            <option value="breadthfirst">Layered paths</option>
             <option value="circle">Circular</option>
             <option value="grid">Grid</option>
           </select>
@@ -230,15 +258,29 @@ export default function GraphPage() {
             {graph.truncated && (
               <div className="bounded-note">
                 <Network size={15} />
-                Bounded neighborhood. Expand from a selected record to follow more connections.
+                This is a bounded neighborhood. Expand a record to request more connections.
               </div>
             )}
+            <div className="network-map-heading">
+              <div>
+                <strong>The connected neighborhood</strong>
+                <span>Explore the relationships. Select a record to inspect its source.</span>
+              </div>
+              <Badge>
+                {layout === 'fcose'
+                  ? 'SPATIAL VIEW'
+                  : layout === 'concentric'
+                    ? 'RADIAL FOCUS'
+                    : 'STRUCTURED LAYOUT'}
+              </Badge>
+            </div>
             <div className={`graph-layout ${selection ? 'with-selection' : ''}`}>
               <section className="graph-board">
                 {graph.nodes.length ? (
                   <Suspense fallback={<Loading text="Preparing graph renderer" />}>
                     <GraphCanvas
                       graph={graph}
+                      rootId={root}
                       appearance="dark"
                       layout={layout}
                       selection={selection}
@@ -262,6 +304,18 @@ export default function GraphPage() {
                   <span>
                     <i className="yellow-dot" />
                     Issue
+                  </span>
+                  <span>
+                    <i style={{ background: '#8bacd0' }} />
+                    Commit
+                  </span>
+                  <span>
+                    <i style={{ background: '#a2b3d0' }} />
+                    Contributor
+                  </span>
+                  <span>
+                    <i style={{ background: '#9eb7bb' }} />
+                    Document
                   </span>
                   <span>— Observed</span>
                   <span>··· Derived</span>
@@ -353,6 +407,6 @@ export default function GraphPage() {
           </>
         )
       )}
-    </>
+    </section>
   );
 }

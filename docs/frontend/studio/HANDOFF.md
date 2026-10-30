@@ -1,5 +1,7 @@
 # Domino investigation studio — desktop handoff
 
+The subsequent [spatial graph revision](../network/GRAPH.md) updates the renderer and adds fCoSE. Timing samples below cover the earlier renderer and do not establish performance for that revision.
+
 Reviewed 31 October 2026, Asia/Kolkata. Current desktop iteration, following the [earlier north star](../desktop-northstar/DESKTOP_NORTHSTAR.md). Frontend only. The backend, database, workers, Actions, and established endpoint paths remain unchanged. Mobile acceptance remains deferred at the user's request.
 
 ## What changed

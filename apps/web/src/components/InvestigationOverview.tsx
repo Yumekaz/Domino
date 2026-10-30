@@ -232,7 +232,8 @@ export default function InvestigationOverview() {
                 <GraphCanvas
                   graph={graph.data}
                   appearance="dark"
-                  layout={window.matchMedia('(max-width: 640px)').matches ? 'grid' : 'breadthfirst'}
+                  layout="fcose"
+                  rootId={root}
                   selection={selection}
                   onSelect={select}
                 />

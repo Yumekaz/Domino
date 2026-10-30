@@ -8,12 +8,23 @@ body {
   margin: auto;
 }
 .renderer-harness > header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border: 1px solid #77613b;
   background: #292214;
   padding: 20px;
+}
+.harness-product-link {
+  display: block;
+  color: #f9d7a7;
+  font: 13px 'Manrope Variable';
+  margin-bottom: 15px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .renderer-harness > header strong {
   font: 12px 'IBM Plex Mono';
