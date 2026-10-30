@@ -1,0 +1,126 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api, fixtureMode, request } from './client';
+import { z } from 'zod';
+import {
+  answerSchema,
+  canonicalGithubUrl,
+  graphSchema,
+  hasValidCitations,
+  safeSourceUrl,
+} from './schemas';
+afterEach(() => vi.unstubAllGlobals());
+describe('Public GitHub input boundary', () => {
+  it('canonicalizes supported repository URLs', () => {
+    expect(canonicalGithubUrl(' https://github.com/pmndrs/zustand.git/ ')).toBe(
+      'https://github.com/pmndrs/zustand',
+    );
+  });
+  it.each([
+    'http://github.com/a/b',
+    'https://github.com.evil.test/a/b',
+    'https://user:secret@github.com/a/b',
+    'https://github.com/a/b/issues',
+    'https://github.com/a/b?token=x',
+    'file:///a/b',
+    'owner/repo',
+  ])('rejects %s', (value) => expect(canonicalGithubUrl(value)).toBeUndefined());
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,hi',
+    'http://example.com',
+    'https://secret@example.com',
+  ])('withholds unsafe source link %s', (value) => expect(safeSourceUrl(value)).toBeUndefined());
+});
+describe('Evidence is never substituted', () => {
+  it('uses live mode by default', () => expect(fixtureMode).toBe(false));
+  it('reports transport failures without loading fixtures', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
+    await expect(api.repository('real-repo')).rejects.toMatchObject({
+      code: 'CONNECTION_UNAVAILABLE',
+    });
+  });
+  it('rejects a malformed success response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ invented: true }), { status: 200 })),
+    );
+    await expect(api.repository('repo')).rejects.toMatchObject({ code: 'CONTRACT_MISMATCH' });
+  });
+  it('preserves machine-readable API errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ code: 'GITHUB_RATE_LIMITED', message: 'Retry later' }), {
+          status: 429,
+        }),
+      ),
+    );
+    await expect(api.import('https://github.com/a/b')).rejects.toMatchObject({
+      code: 'GITHUB_RATE_LIMITED',
+      message: 'Retry later',
+    });
+  });
+  it('handles non-JSON responses explicitly', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html>proxy error</html>', { status: 502 })),
+    );
+    await expect(request('/health', z.object({ status: z.string() }))).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+    });
+  });
+  it('sends agreed ask request fields to the scoped endpoint', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          answer: 'No supporting project history found.',
+          status: 'not_found',
+          claims: [],
+          sources: [],
+          unknowns: [],
+          snapshotSha: 'a'.repeat(40),
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetcher);
+    await api.ask('repo/id', { question: 'Why?', snapshotId: 'snapshot', focusEntityId: 'entity' });
+    expect(fetcher.mock.calls[0][0]).toBe('/api/v1/repositories/repo%2Fid/ask');
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({
+      question: 'Why?',
+      snapshotId: 'snapshot',
+      focusEntityId: 'entity',
+    });
+  });
+  it('requires claim citations to exist in the returned pack', () => {
+    const response = answerSchema.parse({
+      answer: 'A reason',
+      status: 'supported',
+      claims: [{ text: 'Claim', support: 'documented', evidenceIds: ['missing'] }],
+      sources: [],
+      unknowns: [],
+      snapshotSha: 'a'.repeat(40),
+    });
+    expect(hasValidCitations(response)).toBe(false);
+    response.sources = [{ id: 'missing', kind: 'comment', locator: 'Source' }];
+    expect(hasValidCitations(response)).toBe(true);
+    response.claims[0].evidenceIds = [];
+    expect(hasValidCitations(response)).toBe(false);
+  });
+  it('rejects dangling graph relationships and duplicate IDs', () => {
+    const node = { id: 'a', title: 'file', kind: 'File' };
+    const edge = {
+      id: 'e',
+      source: 'a',
+      target: 'missing',
+      kind: 'IMPORTS',
+      verification: 'observed',
+    };
+    expect(graphSchema.safeParse({ nodes: [node], edges: [edge], truncated: false }).success).toBe(
+      false,
+    );
+    expect(
+      graphSchema.safeParse({ nodes: [node, node], edges: [], truncated: false }).success,
+    ).toBe(false);
+  });
+});

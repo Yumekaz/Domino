@@ -1,0 +1,7 @@
+node_modules/
+apps/web/dist/
+apps/web/.env.local
+apps/web/.env.*.local
+apps/web/coverage/
+*.log
+*.tsbuildinfo
