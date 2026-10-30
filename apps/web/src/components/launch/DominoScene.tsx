@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
+import { useDominoMotion } from '../MotionPolicy';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -12,11 +12,13 @@ const ease = (x: number) => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
 /** An explicitly illustrative physical metaphor. Never repository analysis. */
 export default function DominoScene({
   progress,
+  progressSource,
   onPush,
   onReady,
   cinematic = false,
 }: {
   progress: number;
+  progressSource?: { current: number };
   onPush: () => void;
   onReady: () => void;
   cinematic?: boolean;
@@ -24,7 +26,7 @@ export default function DominoScene({
   const host = useRef<HTMLDivElement>(null);
   const labels = useRef<(HTMLSpanElement | null)[]>([]);
   const value = useRef(progress);
-  const reduce = useReducedMotion();
+  const reduce = useDominoMotion();
   const [state, setState] = useState<'loading' | 'ready' | 'fallback'>('loading');
   useEffect(() => {
     value.current = progress;
@@ -48,7 +50,7 @@ export default function DominoScene({
       renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
-        powerPreference: 'low-power',
+        powerPreference: 'high-performance',
       });
     } catch {
       const frame = requestAnimationFrame(() => setState('fallback'));
@@ -83,7 +85,7 @@ export default function DominoScene({
     const light = new THREE.DirectionalLight('#fff7e8', cinematic ? 4.5 : 2.5);
     light.position.set(-5, 11, 5);
     light.castShadow = true;
-    light.shadow.mapSize.set(2048, 2048);
+    light.shadow.mapSize.set(1024, 1024);
     Object.assign(light.shadow.camera, {
       left: -14,
       right: 14,
@@ -107,8 +109,8 @@ export default function DominoScene({
     let reflection: Reflector | undefined;
     if (cinematic) {
       reflection = new Reflector(new THREE.PlaneGeometry(100, 100), {
-        textureWidth: 768,
-        textureHeight: 768,
+        textureWidth: 512,
+        textureHeight: 512,
         clipBias: 0.003,
         color: 0x7f7f7f,
         multisample: 0,
@@ -294,7 +296,7 @@ export default function DominoScene({
       frame = requestAnimationFrame(render);
       if (!visible || document.hidden || time - last < 32) return;
       last = time;
-      const p = value.current / 100;
+      const p = (progressSource?.current ?? value.current) / 100;
       const moving =
         Math.abs(pointer.x - world.rotation.y) > 0.0005 ||
         Math.abs(pointer.y * 0.15 - world.rotation.x) > 0.0005;
@@ -375,7 +377,7 @@ export default function DominoScene({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [reduce, onReady, cinematic]);
+  }, [reduce, onReady, cinematic, progressSource]);
   return (
     <div className={`domino-world ${cinematic ? 'scene-cinematic' : ''} scene-is-${state}`}>
       <img

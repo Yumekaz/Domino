@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import cytoscape, { type Core } from 'cytoscape';
 import { Maximize2, Minus, Plus } from 'lucide-react';
+import { useDominoMotion } from '../../components/MotionPolicy';
 import type { Graph } from '../../api/schemas';
 export type GraphSelection = { kind: 'node' | 'edge'; id: string } | null;
 export default function GraphCanvas({
@@ -16,6 +17,7 @@ export default function GraphCanvas({
   selection: GraphSelection;
   appearance?: 'light' | 'dark';
 }) {
+  const reduced = useDominoMotion();
   const container = useRef<HTMLDivElement>(null);
   const core = useRef<Core | null>(null);
   useEffect(() => {
@@ -28,7 +30,15 @@ export default function GraphCanvas({
       spacingFactor: narrow ? 1.05 : 1.15,
       nodeDimensionsIncludeLabels: true,
       avoidOverlap: true,
-      ...(layout === 'grid' ? { cols: narrow ? 2 : 3 } : {}),
+      ...(layout === 'grid'
+        ? {
+            cols: narrow
+              ? 2
+              : graph.nodes.length <= 12
+                ? 3
+                : Math.ceil(Math.sqrt(graph.nodes.length * 1.5)),
+          }
+        : {}),
     } as cytoscape.LayoutOptions;
     const cy = cytoscape({
       container: container.current,
@@ -257,6 +267,14 @@ export default function GraphCanvas({
   useEffect(() => {
     const cy = core.current;
     if (!cy) return;
+    cy.elements().style({
+      'transition-property':
+        'opacity, background-color, border-color, line-color, target-arrow-color',
+      'transition-duration':
+        reduced || document.documentElement.dataset.input === 'keyboard' || graph.nodes.length > 150
+          ? 0
+          : 180,
+    });
     cy.elements().removeClass('dimmed path-focus');
     if (selection) {
       const element = cy.getElementById(
@@ -271,7 +289,7 @@ export default function GraphCanvas({
         related.removeClass('dimmed').addClass('path-focus');
       }
     }
-  }, [selection, graph, layout]);
+  }, [selection, graph, layout, reduced]);
   return (
     <div className="graph-canvas-wrap">
       <div

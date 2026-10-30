@@ -40,10 +40,11 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 
 ## Handoff
 
-- [Current desktop north star, iteration critique, and verification](docs/frontend/desktop-northstar/DESKTOP_NORTHSTAR.md)
+- [Current investigation studio, desktop critique, and verification](docs/frontend/studio/HANDOFF.md)
+- [Previous desktop north star and iteration evidence](docs/frontend/desktop-northstar/DESKTOP_NORTHSTAR.md)
 - [Design direction and reference research](docs/frontend/DESIGN.md)
 - [API integration assumptions and backend gaps](docs/frontend/INTEGRATION.md)
 - [Asset provenance and generation prompts](docs/frontend/ASSETS.md)
 - [First-pass visual QA and acceptance evidence](docs/frontend/QA.md)
 
-For deployment, serve `apps/web/dist` with SPA fallback to `index.html`, route `/api/v1` to the backend, and use HTTPS. Do not deploy the Vite development server. Publishing or external hosting was outside this local repository task.
+For deployment, serve `apps/web/dist` with SPA fallback to `index.html`, route `/api/v1` to the backend, and use HTTPS. Do not deploy the Vite development server. Source publication does not deploy or host the application.

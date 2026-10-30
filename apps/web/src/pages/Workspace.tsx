@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Link,
   NavLink,
@@ -38,7 +38,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { api, fixtureMode } from '../api/client';
-import { canonicalGithubUrl, type Repository } from '../api/schemas';
+import { type Repository } from '../api/schemas';
 import {
   Badge,
   Button,
@@ -57,6 +57,10 @@ import GraphPage from './graph/GraphPage';
 import InvestigationOverview from '../components/InvestigationOverview';
 import '../workspace-v2.css';
 import RepositoryCommand from '../components/RepositoryCommand';
+import RepositoryConnection from '../components/RepositoryConnection';
+import FocusIdentity from '../components/FocusIdentity';
+import { MotionToggle } from '../components/MotionPolicy';
+import '../investigation-studio.css';
 import '../workspace-theatre.css';
 
 type RepoContext = {
@@ -154,27 +158,12 @@ function WorkspaceRoutes() {
 }
 function RepositoryHome() {
   const navigate = useNavigate();
-  const [url, setUrl] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [existingId, setExistingId] = useState('');
-  const canonical = canonicalGithubUrl(url);
   const health = useQuery({
     queryKey: ['health'],
     queryFn: ({ signal }) => api.health(signal),
     retry: false,
   });
-  const importer = useMutation({
-    mutationFn: api.import,
-    onSuccess: (data) =>
-      navigate(
-        `/app/repositories/${encodeURIComponent(data.repoId)}?job=${encodeURIComponent(data.jobId)}`,
-      ),
-  });
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    if (canonical) importer.mutate(canonical);
-  };
   return (
     <>
       <header className="app-home-nav">
@@ -213,35 +202,7 @@ function RepositoryHome() {
               Connect a public GitHub repository to collect its history and map its code
               relationships.
             </p>
-            <form onSubmit={submit} noValidate>
-              <label htmlFor="repository-url">Public GitHub repository URL</label>
-              <div className="input-action">
-                <input
-                  id="repository-url"
-                  type="url"
-                  placeholder="https://github.com/owner/repository"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  aria-invalid={submitted && !canonical}
-                  aria-describedby="repo-hint"
-                />
-                <Button type="submit" disabled={importer.isPending}>
-                  {importer.isPending ? 'Connecting…' : 'Connect'}
-                  <ArrowUpRight size={17} />
-                </Button>
-              </div>
-              <p className={submitted && !canonical ? 'field-error' : 'field-hint'} id="repo-hint">
-                {submitted && !canonical
-                  ? 'Enter a public https://github.com/owner/repository URL.'
-                  : 'Public repositories · JavaScript & TypeScript · Read-only analysis'}
-              </p>
-            </form>
-            {importer.error && (
-              <ErrorState
-                error={importer.error}
-                retry={() => canonical && importer.mutate(canonical)}
-              />
-            )}
+            <RepositoryConnection />
             <div className="import-expectations">
               <h3>What happens next</h3>
               <ol>
@@ -394,17 +355,22 @@ function RepoShell() {
   }, [query.data]);
   const path = (page: string) =>
     `${basePath}${page ? `/${page}` : ''}${focus ? `?focus=${encodeURIComponent(focus)}` : ''}`;
-  const setFocus = (id: string) =>
-    setParams((p) => {
-      p.set('focus', id);
-      return p;
-    });
+  const setFocus = useCallback(
+    (id: string) =>
+      setParams((p) => {
+        if (id) p.set('focus', id);
+        else p.delete('focus');
+        return p;
+      }),
+    [setParams],
+  );
   return (
     <div className="app-layout">
       <RepositoryCommand repoId={repoId} open={commandOpen} onClose={() => setCommandOpen(false)} />
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Logo compact />
+          <MotionToggle />
         </div>
         <span className="sidebar-label">INVESTIGATE</span>
         <nav aria-label="Workspace">
@@ -443,6 +409,7 @@ function RepoShell() {
       <div className="app-body">
         <header className="workspace-topbar">
           <Logo compact />
+          <MotionToggle />
           <div className="repo-switch-wrap">
             <button
               className="repo-switch"
@@ -508,6 +475,7 @@ function RepoShell() {
           <span>
             SHA <Sha value={query.data?.snapshot?.headSha} />
           </span>
+          <FocusIdentity repoId={repoId} entityId={focus} />
           <Badge tone={query.data?.snapshot?.status === 'ready' ? 'blue' : 'orange'}>
             {query.data?.snapshot?.status || 'No snapshot'}
           </Badge>

@@ -1,0 +1,1 @@
+The initial baseline selector did not unmount the 3D renderer. These raw samples are retained as invalid isolation attempts and are not used as empty-page or React-only performance evidence. The corrected harness explicitly renders a blank view or a counter for those modes.

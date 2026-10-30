@@ -1,0 +1,15 @@
+{
+  "fixture": "RENDERER HARNESS - NOT REPOSITORY EVIDENCE",
+  "mode": "counter",
+  "durationMs": 5383,
+  "samples": 15,
+  "rafMedianMs": 16.7,
+  "rafP95Ms": 1017.1,
+  "rafMaxMs": 1017.1,
+  "framesOver33ms": 6,
+  "longTasksSupported": true,
+  "longTasks": 0,
+  "longTaskTotalMs": 0,
+  "interruptedByHiddenTab": false,
+  "note": "Browser rAF cadence under a local development workload. Not GPU completion timing, production FPS, or a repository-scale benchmark."
+}

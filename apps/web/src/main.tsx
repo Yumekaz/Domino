@@ -1,7 +1,7 @@
 import React, { Component, Suspense, lazy, useEffect, type ReactNode } from 'react';
 import ReactDOM, { type Root } from 'react-dom/client';
 import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom';
-import { MotionConfig } from 'motion/react';
+import { MotionPolicy } from './components/MotionPolicy';
 import './fonts.css';
 import '@fontsource/ibm-plex-mono/latin-400.css';
 import './styles.css';
@@ -44,7 +44,7 @@ if (import.meta.hot) import.meta.hot.data.root = root;
 root.render(
   <React.StrictMode>
     <Boundary>
-      <MotionConfig reducedMotion="user">
+      <MotionPolicy>
         <BrowserRouter>
           <NavigationFocus />
           <Suspense fallback={<Loading text="Opening Domino" />}>
@@ -65,7 +65,7 @@ root.render(
             </Routes>
           </Suspense>
         </BrowserRouter>
-      </MotionConfig>
+      </MotionPolicy>
     </Boundary>
   </React.StrictMode>,
 );

@@ -1,5 +1,7 @@
 # Domino desktop north star
 
+This is the previous desktop iteration. See the [current investigation studio handoff](../studio/HANDOFF.md) for the subsequent product flow, source inspection, revision bridge, motion changes, and current performance evidence.
+
 Current direction, reviewed 31 October 2026 (Asia/Kolkata). This supersedes the first-pass visual direction in `../DESIGN.md` and its first-pass QA record. The earlier captures remain as iteration evidence. The user's latest instruction prioritizes desktop presentation before backend work; mobile acceptance was explicitly deferred for this revision.
 
 ## Direction and decisions

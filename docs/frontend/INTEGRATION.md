@@ -2,6 +2,8 @@
 
 ## Current boundary
 
+The investigation studio and launch doorway reuse these same adapters. The studio requests entity detail and impact for the selected indexed record; the doorway uses the shared repository import form. No new endpoint, backend response field, or local authoritative analysis was introduced. Contributor percentages are labelled shares of the returned contributor counts only.
+
 At initial inspection the repository contained only the supplied specifications and brand files. There was no `apps/api`, `apps/worker`, `packages/contracts`, running service, or ready-made frontend. Those backend areas remain untouched.
 
 `apps/web/src/api/client.ts` calls the master specification's endpoint paths. `schemas.ts` contains **provisional frontend Zod decoders**, derived from the illustrative response examples and the UI's required fields. They are not a newly established backend contract. Replace/import them from the integrator's shared DTO package when available, keeping the server authoritative. A mismatch surfaces as `CONTRACT_MISMATCH`; the client does not guess field aliases or populate missing analysis data.

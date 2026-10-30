@@ -36,6 +36,9 @@ import {
 } from '../components/ui';
 import { useRepo } from './Workspace';
 import ImpactAtlas from '../components/ImpactAtlas';
+import SourceLens from '../components/SourceLens';
+import KnowledgeLedger from '../components/KnowledgeLedger';
+import RevisionBridge from '../components/RevisionBridge';
 
 export function EntityIcon({ kind, size = 18 }: { kind: string; size?: number }) {
   const Icon =
@@ -258,6 +261,7 @@ export function AskPage() {
   const { repoId, repository, focus } = useRepo();
   const [question, setQuestion] = useState('');
   const [submitted, setSubmitted] = useState('');
+  const [selectedSource, setSelectedSource] = useState('');
   const ask = useMutation({
     mutationFn: (q: string) =>
       api.ask(repoId, {
@@ -270,6 +274,7 @@ export function AskPage() {
     e.preventDefault();
     if (!question.trim()) return;
     setSubmitted(question.trim());
+    setSelectedSource('');
     ask.mutate(question.trim());
   };
   const grounded = ask.data ? hasValidCitations(ask.data) : false;
@@ -280,7 +285,7 @@ export function AskPage() {
         title="Ask for the why"
         description="A question deserves a trail of evidence. Every answer starts with indexed history."
       />
-      <div className="ask-layout">
+      <div className={`ask-layout reasoning-studio ${ask.data ? 'has-answer' : ''}`}>
         <section>
           <form className={`question-form ${ask.data ? 'compact-input' : ''}`} onSubmit={onSubmit}>
             <label htmlFor="question">
@@ -323,7 +328,7 @@ export function AskPage() {
           ) : ask.data ? (
             <article className="answer-report" aria-live="polite">
               <div className="answer-heading">
-                <Eyebrow>INVESTIGATION REPORT</Eyebrow>
+                <Eyebrow>THE REASONING / INSPECTABLE CLAIMS</Eyebrow>
                 <Badge tone={ask.data.status === 'not_found' ? 'orange' : 'blue'}>
                   {ask.data.status.replaceAll('_', ' ')}
                 </Badge>
@@ -363,13 +368,15 @@ export function AskPage() {
                           <p>{claim.text}</p>
                           <div className="claim-citations">
                             {claim.evidenceIds.map((id) => (
-                              <a
+                              <button
                                 key={id}
-                                href={`#source-${ask.data!.sources.findIndex((s) => s.id === id) + 1}`}
+                                aria-pressed={selectedSource === id}
+                                aria-controls="answer-source-detail"
+                                onClick={() => setSelectedSource(id)}
                               >
                                 Source {ask.data!.sources.findIndex((s) => s.id === id) + 1}{' '}
                                 <ArrowRight size={12} />
-                              </a>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -411,7 +418,12 @@ export function AskPage() {
             <Shield size={16} /> Supporting evidence
           </SectionLabel>
           {ask.data?.sources.length ? (
-            <SourceList sources={ask.data.sources} idPrefix="source" />
+            <SourceLens
+              sources={ask.data.sources}
+              selectedId={selectedSource}
+              onSelect={setSelectedSource}
+              id="answer-source"
+            />
           ) : (
             <div className="evidence-placeholder">
               <span className="evidence-symbol observed">
@@ -720,8 +732,8 @@ export function ImpactPage() {
   );
 }
 export function RiskPage() {
-  const { repoId, repository, path, setFocus } = useRepo();
-  const [singleOnly, setSingleOnly] = useState(true);
+  const { repoId, repository, path } = useRepo();
+  const [singleOnly, setSingleOnly] = useState(false);
   const query = useQuery({
     queryKey: ['risk', repoId, repository.snapshot?.id],
     queryFn: ({ signal }) => api.risk(repoId, repository.snapshot!.id, signal),
@@ -731,7 +743,7 @@ export function RiskPage() {
     <>
       <PageTitle
         number="06"
-        title="Keep knowledge connected"
+        title="Who carries the context"
         description="See where the indexed history records a single observed contributor."
       />
       {!repository.snapshot ? (
@@ -744,23 +756,18 @@ export function RiskPage() {
         <ErrorState error={query.error} retry={() => query.refetch()} />
       ) : (
         <>
-          <div className="risk-summary">
-            <div className="risk-emblem">
-              <Shield size={55} strokeWidth={1} />
-              <span>1</span>
-            </div>
+          <div className="risk-prologue">
             <div>
-              <Eyebrow>OBSERVATION, NOT A CLAIM ABOUT PEOPLE</Eyebrow>
+              <Eyebrow>THE PEOPLE BEHIND THE COMMIT HISTORY</Eyebrow>
               <h2>
-                One observed contributor.
-                <br />
-                <span className="muted-word">A reason to share context.</span>
+                Observed <em>≠ known.</em>
               </h2>
-              <p>
-                This does not mean only one person knows the code. Shallow history, contributor
-                aliases, and rename resolution affect what can be observed.
-              </p>
             </div>
+            <p>
+              Single-observed-contributor files are a reason to share context. They do not prove
+              that only one person knows the code. The observation depends on history coverage,
+              contributor aliases, and rename resolution.
+            </p>
           </div>
           <div className="risk-scope">
             <span>
@@ -793,61 +800,10 @@ export function RiskPage() {
               Single contributor only
             </label>
           </div>
-          <div className="risk-table">
-            {query.data.files.filter((f) => !singleOnly || f.observedAuthors === 1).length === 0 ? (
-              <Empty title="No matching files in the returned results">
-                Coverage is bounded; this is not a guarantee of distributed knowledge.
-              </Empty>
-            ) : (
-              query.data.files
-                .filter((f) => !singleOnly || f.observedAuthors === 1)
-                .map((f) => (
-                  <article key={f.path}>
-                    <div className="risk-file-heading">
-                      <FileCode2 size={19} />
-                      <h3>
-                        <code>{f.path}</code>
-                      </h3>
-                      <Badge tone={f.observedAuthors === 1 ? 'orange' : 'neutral'}>
-                        {f.observedAuthors} observed contributor{f.observedAuthors !== 1 ? 's' : ''}
-                      </Badge>
-                    </div>
-                    <div className="risk-file-details">
-                      <span>{f.commitCount} observed commits</span>
-                      <span>Last edit {f.lastEdit}</span>
-                      <Link
-                        onClick={() => setFocus(f.entityId)}
-                        to={`${path('history').split('?')[0]}?focus=${encodeURIComponent(f.entityId)}`}
-                      >
-                        Trace history <ArrowUpRight size={14} />
-                      </Link>
-                    </div>
-                    <div className="contributor-bars">
-                      {f.contributors.map((c, i) => (
-                        <div key={c.name}>
-                          <span className="contributor-avatar">{String.fromCharCode(65 + i)}</span>
-                          <span>{c.name}</span>
-                          <div className="contributor-bar">
-                            <i
-                              style={{
-                                width: `${f.commitCount ? Math.min(100, (c.commits / f.commitCount) * 100) : 0}%`,
-                              }}
-                            />
-                          </div>
-                          <span>
-                            {c.commits} commit{c.commits === 1 ? '' : 's'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <details>
-                      <summary>Inspect contribution evidence</summary>
-                      <SourceList sources={f.sources} />
-                    </details>
-                  </article>
-                ))
-            )}
-          </div>
+          <KnowledgeLedger
+            files={query.data.files.filter((file) => !singleOnly || file.observedAuthors === 1)}
+            historyPath={path('history').split('?')[0]}
+          />
         </>
       )}
     </>
@@ -960,41 +916,7 @@ export function PRPage() {
         <ErrorState error={query.error} retry={() => query.refetch()} />
       ) : (
         <>
-          <section className="pr-report">
-            <div className="pr-report-title">
-              <GitPullRequest size={25} />
-              <div>
-                <Eyebrow>ANALYSIS RUN {query.data.id}</Eyebrow>
-                <h2>Pull request #{query.data.prNumber}</h2>
-              </div>
-              <Badge tone={query.data.status === 'completed' ? 'blue' : 'orange'}>
-                {query.data.status}
-              </Badge>
-            </div>
-            <div className="pr-revisions">
-              <div>
-                <Eyebrow>BASE</Eyebrow>
-                <Sha value={query.data.baseSha} />
-              </div>
-              <ArrowRight size={19} />
-              <div>
-                <Eyebrow>HEAD</Eyebrow>
-                <Sha value={query.data.headSha} />
-              </div>
-              <div>
-                <Eyebrow>EVENT</Eyebrow>
-                <span>{query.data.event}</span>
-              </div>
-              <div>
-                <Eyebrow>CREATED</Eyebrow>
-                <time>{query.data.createdAt}</time>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-5">
-              <SourceLink url={query.data.prUrl}>Open pull request</SourceLink>
-              <SourceLink url={query.data.actionsUrl}>Open actual Actions summary</SourceLink>
-            </div>
-          </section>
+          <RevisionBridge run={query.data} />
           <Warnings
             warnings={[
               ...query.data.warnings,
