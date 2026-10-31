@@ -12,10 +12,10 @@ observations at the PR head and writes a `GITHUB_STEP_SUMMARY`.
   repository secrets are passed to the job.
 - Analyzer code and configuration come from a separate checkout of the **base** revision
   (`analyzer/`). The PR head is checked out separately under `target/` and is treated only as data.
-- The workflow installs the trusted analyzer workspace from
-  `analyzer/packages/dependency-adapter/package-lock.json` with `npm ci --ignore-scripts`. It never
-  installs dependencies, runs scripts, builds, hooks, tests or configuration from the target
-  repository.
+- The workflow installs the trusted base workspace at `analyzer/` with `npm ci --ignore-scripts` so
+  dependency-cruiser and its TypeScript peer resolve together. It never installs dependencies, runs
+  scripts, builds, hooks, tests or configuration from the target repository. Target Git metadata is
+  removed before analysis; target files are treated only as data.
 - Changed-file metadata comes from GitHub's read-only pull-request files API with a bounded
   300-file/page limit. The analyzer runs with a 120-second budget and bounded output.
 - Execution argument arrays are used throughout; no shell concatenation of PR content.
@@ -67,8 +67,9 @@ node --test test/*.test.ts
 ```
 
 Tests cover event validation, changed-file parsing/pagination, summary truthfulness and static
-workflow security properties. They do not prove remote workflow execution; C-09 remains a live gate
-that requires a real public PR and a subsequent synchronize event.
+workflow security properties. Remote execution was verified on temporary PR #13: opened head
+`2e2a590…` (run 41175040860) and synchronized head `9410250…` (run 41175108532), each with real
+direct dependents and a genuine step summary.
 
 ## Limitations
 

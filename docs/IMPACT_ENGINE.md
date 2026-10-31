@@ -108,7 +108,9 @@ also produced the same paths from a fresh analyzer invocation.
   `impactSchema`/`analysisSchema` in contract tests.
 - Database persistence and API routes are wired. The worker-side analysis handler remains available
   for a future queue-based fresh-checkout refresh but is not the manual API path. Genuine remote
-  Actions execution (C-09) and a fresh live import through the integrated worker are not performed.
+  Actions execution is verified on temporary PR #13: opened head `2e2a590…` (run 41175040860) and
+  synchronized head `9410250…` (run 41175108532), each with real direct dependents. A live manual
+  API PR run against a database and a fresh live worker import remain unperformed.
 
 ## Verification
 

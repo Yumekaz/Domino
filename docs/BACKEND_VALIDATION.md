@@ -31,11 +31,14 @@ The live public import, a model-generated answer, C's impact/PR services, the fr
 | Deterministic impact over stored imports | PASS: direct `session.ts` and transitive `dashboard.tsx` reverse paths returned from persisted observations |
 | Manual PR run persistence | PASS: idempotent run reuse; a differing PR head persists a stale run with no substituted result |
 | PR-action local dry run | PASS: the real workflow script analyzed `apps/web/src/api/schemas.ts` with dependency-cruiser 18.7.0 and emitted a genuine step summary with direct dependents |
-| Frontend shared-contract migration | PASS: typecheck, lint, 38 tests, production build and production-fixture exclusion |
+| Live PR Actions | PASS: temporary PR #13 ran the read-only workflow on opened head `2e2a590…` (run 41175040860) and synchronized head `9410250…` (run 41175108532), each cruising 67 modules / 111 structural imports and returning direct dependents of `apps/web/src/api/client.ts` |
+| Frontend shared-contract migration | PASS: typecheck, lint, 40 tests, production build and production-fixture exclusion |
 | Browser fixture journeys | PASS: overview, history with an empty browse query, supported Q&A with source inspection, impact plus separate co-change sample/window, risk caveats, and a stale PR run; no captured console errors |
 | Clean workspace install | PASS: `npm ci --ignore-scripts` with the refreshed root lockfile |
 
-Not performed for this pass: a fresh live public import through the integrated worker, a live model-generated answer, a live opened/synchronized PR Actions run, Docker Compose, deployment, and browser-to-live-backend acceptance. Docker/PostgreSQL credentials were not available locally; the hosted CI PostgreSQL service remains the database acceptance path.
+The live workflow originally produced zero modules because the package-only analyzer install hoisted dependency-cruiser without its TypeScript peer. Installing the trusted base workspace at the analyzer root fixed module discovery. The target checkout's nested Git metadata is also removed before analysis; target installs, builds, scripts and hooks are never executed.
+
+Not performed for this pass: a fresh live public import through the integrated worker, a live model-generated answer, a live manual API PR run, Docker Compose, deployment, and browser-to-live-backend acceptance. Docker/PostgreSQL credentials were not available locally; the hosted CI PostgreSQL service remains the database acceptance path.
 
 ## Verified locally
 

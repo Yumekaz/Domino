@@ -2,7 +2,7 @@
 
 A cinematic product launch and an evidence-led engineering workspace for INNOVISTA PS06.
 
-The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The backend provides shared contracts, Fastify, PostgreSQL migrations, pg-boss integration, role B's history/retrieval/evidence pipeline, and role C's dependency-cruiser structural impact, manual PR analysis and read-only PR Actions workflow. The web client validates the shared contracts. Live model synthesis, live GitHub Actions execution and deployment remain release gates.
+The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The backend provides shared contracts, Fastify, PostgreSQL migrations, pg-boss integration, role B's history/retrieval/evidence pipeline, and role C's dependency-cruiser structural impact, manual PR analysis and read-only PR Actions workflow. The web client validates the shared contracts. Live model synthesis, a fresh live worker import and deployment remain release gates.
 
 ## Run
 
@@ -16,7 +16,7 @@ npm run dev
 
 Open the printed local URL. `/` is the launch; `/app` connects repositories. Vite proxies `/api` to `http://127.0.0.1:3000`. Configure `VITE_API_BASE_URL` in `.env.local` to use another API origin; do not include `/api/v1` in that value. Only public configuration belongs in `VITE_` variables.
 
-**Live mode is the default.** Without the API, import and analysis show honest connection errors. The web client imports the shared Zod contracts and no longer carries provisional decoders. The backend history and structural-impact paths are covered by integration tests and a local PR-action dry run; a live model answer, a live public PR Actions run, and complete browser-to-live-backend acceptance remain unverified.
+**Live mode is the default.** Without the API, import and analysis show honest connection errors. The web client imports the shared Zod contracts and no longer carries provisional decoders. The backend history and structural-impact paths are covered by integration tests, a local PR-action dry run and a real opened/synchronized read-only PR workflow; a live model answer, a live manual API PR run against a running database, and complete browser-to-live-backend acceptance remain unverified.
 
 ## Explicit development fixture
 
