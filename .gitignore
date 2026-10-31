@@ -8,4 +8,5 @@ apps/web/coverage/
 .env
 .env.*
 !.env.example
+!.env.postgres.example
 /.domino-a-b-review/
