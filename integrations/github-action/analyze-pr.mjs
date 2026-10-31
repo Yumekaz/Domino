@@ -181,6 +181,12 @@ export function renderSummary(input) {
   lines.push(`| Head revision | \`${input.headSha}\` |`);
   lines.push(`| Analyzer | dependency-cruiser ${codePoint(input.analyzerVersion)} |`);
   lines.push(`| Config hash | \`${input.configHash}\` |`);
+  if (input.analyzerSummary) {
+    const summary = input.analyzerSummary;
+    lines.push(
+      `| Analyzer coverage | ${summary.modulesCruised} cruised / ${summary.modules} modules / ${summary.structuralImports} structural / ${summary.unresolvedImports} unresolved / ${summary.excludedModules} excluded |`,
+    );
+  }
   lines.push(`| Changed files | ${input.changedFiles.length} |`);
   lines.push("");
   lines.push("## Changed files", "");
@@ -390,6 +396,7 @@ async function main() {
       binaryFiles,
       result,
       workflowWarnings,
+      analyzerSummary: analysis.summary,
     });
     const summaryPath = process.env.GITHUB_STEP_SUMMARY;
     if (summaryPath) writeFileSync(summaryPath, summary + "\n", { flag: "a" });
