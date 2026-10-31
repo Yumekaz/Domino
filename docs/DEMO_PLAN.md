@@ -47,6 +47,24 @@ points** if a file is preceded by many historical revisions. Initial layout
 changes can still pause briefly on this machine; test the actual presentation
 hardware before relying on this larger view.
 
+Two additional public repositories were checked on 31 October 2026:
+
+- `sindresorhus/p-limit` at `a8a6fbec4e0e866d6d779b10889bb4f5567e70eb`:
+  partial overall coverage, four indexed structural imports, a source-linked
+  question about issue #87, three possible direct dependents of `index.js`, and
+  observed contributor counts. A manual analysis of PR #109 was stale because
+  the PR head differed from the indexed default branch; no result was invented.
+- `expressjs/cors` at `5317ebe670db2aaebc1d496eb5d33493deefb3ed`:
+  partial overall coverage, four indexed structural imports, four possible
+  direct dependents of `lib/index.js`, a five-record graph and observed
+  contributor counts. Both imports reported unresolved/external imports.
+
+The launch's domino reset and story controls, a history interaction, impact
+story interaction and the workspace link were exercised in a desktop browser
+before the p-limit import. This is not proof that every public repository,
+language, browser or network will work. Do not treat a stale manual PR run as
+a fresh impact report: refreshing the default branch may not index the PR head.
+
 The user has deferred automatic GitHub-summary work for this pass. The local
 walkthrough does not establish a hosted deployment, a full browser/accessibility
 audit, or performance for large real graphs. The longer matrix below retains

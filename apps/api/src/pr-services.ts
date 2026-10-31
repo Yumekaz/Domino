@@ -100,7 +100,7 @@ export function createPrCheckService(deps: PrCheckDeps): PrCheckServicePort {
       let result: Impact | null = null;
       if (stale) {
         warnings.push(
-          `The active snapshot ${snapshotSha.slice(0, 8)} does not match the PR head ${pull.headSha.slice(0, 8)}. No impact result was substituted; refresh the index or request a new run.`,
+          `The active snapshot ${snapshotSha.slice(0, 8)} does not match the PR head ${pull.headSha.slice(0, 8)}. No impact result was substituted. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.`,
         );
       } else {
         try {

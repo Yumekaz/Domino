@@ -1037,11 +1037,21 @@ export function PRPage() {
           <RevisionBridge run={query.data} />
           <Warnings
             warnings={[
-              ...query.data.warnings,
-              ...(query.data.stale ||
-              (query.data.result && query.data.result.snapshotSha !== query.data.headSha)
+              ...query.data.warnings.map((warning) =>
+                warning.replace(
+                  'No impact result was substituted; refresh the index or request a new run.',
+                  'No impact result was substituted. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
+                ),
+              ),
+              ...((query.data.stale ||
+                (query.data.result && query.data.result.snapshotSha !== query.data.headSha)) &&
+              !query.data.warnings.some(
+                (warning) =>
+                  warning.includes('No impact result was substituted; refresh the index or request a new run.') ||
+                  warning.includes('Manual analysis requires a matching indexed revision;'),
+              )
                 ? [
-                    'The analysis is stale relative to the PR head. Refresh the underlying index or request a new run.',
+                    'The analysis is stale relative to the PR head. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
                   ]
                 : []),
             ]}

@@ -465,5 +465,7 @@ describe("manual PR analysis persistence", () => {
     expect(output.stale).toBe(true);
     expect(output.result).toBeNull();
     expect(output.warnings.join(" ")).toMatch(/does not match the PR head/);
+    expect(output.warnings.join(" ")).toMatch(/refreshing the default branch may not match/i);
+    expect(output.warnings.join(" ")).not.toMatch(/refresh the index or request a new run/i);
   });
 });
