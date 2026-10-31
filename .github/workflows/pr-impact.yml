@@ -61,6 +61,23 @@ jobs:
         working-directory: analyzer/packages/dependency-adapter
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Diagnose analyzer target
+        if: steps.analyzer.outputs.present == 'true'
+        shell: bash
+        run: |
+          echo "--- target files"
+          find target/apps/web/src -maxdepth 1 -type f | head -10
+          echo "--- analyzer locations"
+          ls -d analyzer/node_modules/dependency-cruiser analyzer/packages/dependency-adapter/node_modules/dependency-cruiser 2>/dev/null || true
+          BIN=""
+          for candidate in analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs analyzer/packages/dependency-adapter/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs; do
+            if [ -f "$candidate" ]; then BIN="$candidate"; break; fi
+          done
+          echo "bin=$BIN"
+          node -e "const fs=require('fs'); const file=process.env.GITHUB_WORKSPACE+'/target/apps/web/tsconfig.json'; fs.writeFileSync('/tmp/dc-config.json', JSON.stringify({forbidden:[],options:{parser:'tsc',tsPreCompilationDeps:true,doNotFollow:{path:'node_modules'},exclude:{path:'(^|/)(node_modules|dist|build|out|coverage|vendor|__generated__|generated|\\\\.git|\\\\.next|\\\\.cache)(/|$)'},tsConfig:{fileName:file}}}))"
+          node "$BIN" "$GITHUB_WORKSPACE/target/apps/web/src" --config /tmp/dc-config.json --output-type json --progress none > /tmp/dc-configured.json 2>/tmp/dc-configured.err || true
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-configured.json','utf8')); console.log('configured modules', j.modules?.length, j.summary);"
+          head -20 /tmp/dc-configured.err
       - name: Compute and publish the impact summary
         if: steps.analyzer.outputs.present == 'true'
         env:
