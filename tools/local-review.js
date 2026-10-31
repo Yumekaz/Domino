@@ -73,12 +73,13 @@
       initialUrl = location.href,
       intervals = [],
       longTasks = [],
+      longFrames = [],
       visibility = [document.visibilityState];
     let last = start,
       raf;
     const changed = () => visibility.push(document.visibilityState);
     document.addEventListener("visibilitychange", changed);
-    let observer;
+    let observer, frameObserver;
     try {
       observer = new PerformanceObserver((list) =>
         longTasks.push(
@@ -89,6 +90,12 @@
       );
       observer.observe({ type: "longtask", buffered: false });
     } catch {}
+    try {
+      frameObserver = new PerformanceObserver((list) =>
+        longFrames.push(...list.getEntries().map((entry) => entry.toJSON())),
+      );
+      frameObserver.observe({ type: "long-animation-frame", buffered: false });
+    } catch {}
     const frame = (now) => {
       intervals.push(now - last);
       last = now;
@@ -98,6 +105,7 @@
     setTimeout(async () => {
       cancelAnimationFrame(raf);
       observer?.disconnect();
+      frameObserver?.disconnect();
       document.removeEventListener("visibilitychange", changed);
       const sorted = [...intervals].sort((a, b) => a - b);
       const percentile = (p) =>
@@ -117,6 +125,15 @@
         p95Ms: percentile(0.95),
         maxMs: sorted.at(-1),
         longTasks,
+        longFrames,
+        graphStages: performance
+          .getEntriesByType("measure")
+          .filter(
+            (entry) =>
+              entry.name.startsWith("domino.graph.") &&
+              entry.startTime >= start,
+          )
+          .map((entry) => entry.toJSON()),
         longTaskTotalMs: longTasks.reduce((sum, t) => sum + t.duration, 0),
       };
       try {

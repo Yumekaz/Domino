@@ -10,13 +10,14 @@ Scope: the local presentation stack and desktop workspace. Deployment is exclude
 - **LD-04:** Data, native binaries, backups and review artifacts live under ignored `.domino`, outside npm-managed directories. PostgreSQL 17.11 binaries are pinned to the package integrity in `tools/setup-local-postgres.mjs`. A cold physical backup was restored on a separate loopback port and all five database inventories matched.
 - **LD-05:** `npm run demo` builds and verifies the actual frontend, checks server-secret exclusion, starts the local API and both worker queues, and serves the production SPA behind a same-origin local proxy. A supervisor may recover only jobs tagged with its own worker instance after observing that process exit.
 - **LD-06:** The force-layout calculation runs in a dedicated Web Worker; Cytoscape still renders actual API nodes/edges. A quick resting layout remains available during computation; interruption terminates the worker and unavailable spatial layout falls back with a visible note. No graph records or relationships are generated for presentation.
+- **LD-07:** The remaining first-opening stall was traced to synchronous core population, hidden DOM rows and bulk curve invalidation. Node-first progressive preparation, preassigned selection styles, worker coordinates before curve insertion, readable zoom labels and expandable keyboard/evidence lists remove that stall in the measured production samples. See [the startup performance record](frontend/network/STARTUP_PERFORMANCE.md) for repeated real-data measurements and explicit limits.
 
 ## Acceptance
 
 | Area | Result and actual evidence |
 | --- | --- |
 | Shared API / persistence | PASS: root `npm run typecheck`; full `npm test`: 43 Vitest, 81 history/evidence/retrieval and 65 impact tests passed; six explicitly gated live/database tests skipped. After the final report-error and timeout-message changes, 22 focused queue/API/contract tests passed. No paid model calls in these suites. |
-| Web | PASS: `typecheck`, `lint`, 44 tests, production build and `verify:production`. The supervisor also checks the actual emitted JavaScript for configured server credential values before serving it. The lazy Three.js chunk (~568 kB) and layout-worker chunk (~561 kB) remain disclosed. |
+| Web | PASS: `typecheck`, `lint`, 49 tests across 7 files, production build and `verify:production` after the graph-startup fix. The supervisor also checks the actual emitted JavaScript for configured server credential values before serving it. The lazy Three.js chunk (~568 kB) and layout-worker chunk (~561 kB) remain disclosed. |
 | Public ingestion / reindex | PASS, explicitly partial: actual `yocto-queue` and `ky` imports through the worker and production UI. Public-only validation refused the private Domino repository. No private repository data was indexed. Earlier live acceptance also covered `p-limit` and `expressjs/cors`. |
 | History / source inspection | PASS: real paginated history and exact original source links; source inspector/source-list recovery after stopping the API and using both retry buttons. Long CBM source text no longer causes horizontal page overflow. |
 | Live Q&A | PASS for the rehearsed question: one bounded GPT-6 Luna request returned `supported` with three documented claims about the iterator/drain decision, citing issue #11 comment `2696500039`. The original source was inspected. An unrelated no-focus question returned `not found` with “No indexed source text matched the question.” No model retry or alternate model was used. |
@@ -57,7 +58,7 @@ Foreground production observations on this machine, not a GPU benchmark or unive
 | Settled depth-3 `ky` graph, zoom and pan | p95 16.9 ms, max 17.6 ms, zero long tasks |
 | Launch domino cascade | p95 17.2 ms, max 33.3 ms, zero long tasks |
 
-The first graph opening still has a brief main-thread hitch from initial rendering/module/source work. It is improved, not eliminated. These measurements cover the actual bounded neighborhood; they do not prove repository-wide graphs with thousands of nodes will remain smooth. Graph limits remain 200 nodes / 400 edges per request.
+The table above records the earlier pass. The subsequent [startup fix](frontend/network/STARTUP_PERFORMANCE.md) reproduced a 316.6 ms gap and reduced fresh file-graph openings to 33.5 / 33.3 ms maximum intervals with zero long tasks. A real 200-record neighborhood measured a 50.0 ms maximum and zero long tasks. Those results remove the recorded startup stall in the tested cases; they do not establish smoothness for every machine or unbounded repository-wide graphs. Graph limits remain 200 nodes / 400 edges per request.
 
 ## Run and recover locally
 

@@ -17,6 +17,7 @@ import { EntityIcon, EntityInspector, ImpactResults } from '../pages/investigati
 import { Badge, Empty, ErrorState, Eyebrow, Loading, Sha, SourceLink, Warnings } from './ui';
 import SourceLens from './SourceLens';
 import type { GraphSelection } from '../pages/graph/GraphCanvas';
+import GraphRecords from '../pages/graph/GraphRecords';
 const GraphCanvas = lazy(() => import('../pages/graph/GraphCanvas'));
 export default function InvestigationOverview() {
   const { repository, repoId, focus, setFocus, path } = useRepo();
@@ -24,6 +25,7 @@ export default function InvestigationOverview() {
   const [mapRoot, setMapRoot] = useState(focus);
   const [mode, setMode] = useState<'map' | 'sources' | 'impact'>('map');
   const [expanded, setExpanded] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const studio = useRef<HTMLElement>(null);
   const records = useQuery({
     queryKey: ['overview-records', repoId, repository.snapshot?.id],
@@ -341,33 +343,13 @@ export default function InvestigationOverview() {
         </div>
       </div>
       {graph.data && (
-        <details className="atlas-accessible">
+        <details
+          className="atlas-accessible"
+          open={recordsOpen}
+          onToggle={(event) => setRecordsOpen(event.currentTarget.open)}
+        >
           <summary>Inspect this neighborhood with keyboard controls</summary>
-          <div>
-            {graph.data.nodes.map((node) => (
-              <button
-                key={node.id}
-                onClick={() => {
-                  select({ kind: 'node', id: node.id });
-                  setMode('map');
-                }}
-              >
-                <EntityIcon kind={node.kind} size={14} />
-                {node.title}
-                <Badge>{node.kind}</Badge>
-              </button>
-            ))}
-          </div>
-          <div>
-            {graph.data.edges.map((edge) => (
-              <button key={edge.id} onClick={() => select({ kind: 'edge', id: edge.id })}>
-                {graph.data.nodes.find((node) => node.id === edge.source)?.title} →{' '}
-                {graph.data.nodes.find((node) => node.id === edge.target)?.title}
-                <Badge>{edge.kind}</Badge>
-                <Badge>{edge.verification}</Badge>
-              </button>
-            ))}
-          </div>
+          {recordsOpen && <GraphRecords graph={graph.data} onSelect={select} />}
         </details>
       )}
     </section>

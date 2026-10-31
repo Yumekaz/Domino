@@ -66,6 +66,58 @@ export function EntityIcon({ kind, size = 18 }: { kind: string; size?: number })
               : Braces;
   return <Icon size={size} />;
 }
+function EntityConnections({
+  detail,
+  onFollow,
+}: {
+  detail: Awaited<ReturnType<typeof api.entity>>;
+  onFollow: (id: string) => void;
+}) {
+  const [neighbors, setNeighbors] = useState(12);
+  const [proofs, setProofs] = useState(6);
+  return (
+    <>
+      <SectionLabel>Follow the relationships</SectionLabel>
+      <div className="neighbor-list">
+        {detail.neighbors.slice(0, neighbors).map((n) => (
+          <button key={n.id} onClick={() => onFollow(n.id)}>
+            <EntityIcon kind={n.kind} />
+            <span>{n.title}</span>
+            <ChevronRight size={15} />
+          </button>
+        ))}
+      </div>
+      {neighbors < detail.neighbors.length && (
+        <Button
+          className="pagination-load-more"
+          variant="secondary"
+          onClick={() => setNeighbors(neighbors + 12)}
+        >
+          Show more connected records ({neighbors} of {detail.neighbors.length})
+        </Button>
+      )}
+      {detail.edges.slice(0, proofs).map((edge) => (
+        <div className="relation-proof" key={edge.id}>
+          <Badge tone={edge.verification === 'inferred' ? 'orange' : 'neutral'}>
+            {edge.verification}
+          </Badge>
+          <code>{edge.kind}</code>
+          {edge.evidenceExcerpt && <p>{edge.evidenceExcerpt}</p>}
+          <SourceLink url={edge.sourceUrl}>Relationship provenance</SourceLink>
+        </div>
+      ))}
+      {proofs < detail.edges.length && (
+        <Button
+          className="pagination-load-more"
+          variant="secondary"
+          onClick={() => setProofs(proofs + 6)}
+        >
+          Show more relationship proofs ({proofs} of {detail.edges.length})
+        </Button>
+      )}
+    </>
+  );
+}
 export function EntityInspector({
   entityId,
   onClose,
@@ -109,32 +161,14 @@ export function EntityInspector({
           {query.data.entity.excerpt && <p>{query.data.entity.excerpt}</p>}
           <SourceLink url={query.data.entity.sourceUrl}>Open original record</SourceLink>
           <SourceList key={entityId} sources={query.data.sources} initialLimit={6} />
-          <SectionLabel>Follow the relationships</SectionLabel>
-          <div className="neighbor-list">
-            {query.data.neighbors.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => {
-                  setFocus(n.id);
-                  onNavigate?.(n.id);
-                }}
-              >
-                <EntityIcon kind={n.kind} />
-                <span>{n.title}</span>
-                <ChevronRight size={15} />
-              </button>
-            ))}
-          </div>
-          {query.data.edges.map((edge) => (
-            <div className="relation-proof" key={edge.id}>
-              <Badge tone={edge.verification === 'inferred' ? 'orange' : 'neutral'}>
-                {edge.verification}
-              </Badge>
-              <code>{edge.kind}</code>
-              {edge.evidenceExcerpt && <p>{edge.evidenceExcerpt}</p>}
-              <SourceLink url={edge.sourceUrl}>Relationship provenance</SourceLink>
-            </div>
-          ))}
+          <EntityConnections
+            key={entityId}
+            detail={query.data}
+            onFollow={(id) => {
+              setFocus(id);
+              onNavigate?.(id);
+            }}
+          />
           <Link
             className="button button-secondary"
             to={`${path('graph').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}

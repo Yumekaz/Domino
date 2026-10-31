@@ -49,7 +49,7 @@ structural imports with **partial** coverage because its extended TypeScript
 configuration was unavailable. A three-hop neighborhood of `source/core/Ky.ts`
 showed 79 records and 275 relationships; the graph is bounded, not a complete
 repository-wide map. Search results are paginated: use **Load more starting
-points** if a file is preceded by many historical revisions. Spatial arrangement now runs in a Web Worker. A measured first-use selection still had a brief main-thread pause; settled panning/zooming was smoother. Use **Expand map**, zoom to readable labels, and inspect individual records. See the measurements in local readiness.
+points** if a file is preceded by many historical revisions. Spatial arrangement runs in a Web Worker; node/curve initialization is now progressive. Repeated production first-use measurements removed the earlier 300+ ms stall. Use **Expand map**, zoom to readable labels, and inspect individual records. Keyboard records/relationships and source connections/proofs have explicit “show more” controls. See [the measured startup fix](frontend/network/STARTUP_PERFORMANCE.md) for results and limits.
 
 Two additional public repositories were checked on 31 October 2026:
 

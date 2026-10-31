@@ -3,8 +3,9 @@ import cytoscape, { type Core } from 'cytoscape';
 import { Crosshair, Maximize2, Minus, Plus, RotateCcw, CircleDot, Rows3 } from 'lucide-react';
 import { useDominoMotion } from '../../components/MotionPolicy';
 import type { Graph } from '../../api/schemas';
-import { networkElements } from './network-elements';
+import { networkElements, networkClasses } from './network-elements';
 import { spatialLayout } from './spatial-layout';
+import { nextGraphFrame, populateGraph } from './progressive-elements';
 import './network.css';
 
 export type GraphSelection = { kind: 'node' | 'edge'; id: string } | null;
@@ -55,6 +56,7 @@ export default function GraphCanvas({
   const [edgeLabels, setEdgeLabels] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [layoutNote, setLayoutNote] = useState('');
+  const [preparing, setPreparing] = useState(true);
   const relayout = useRef<() => void>(() => {});
   const layoutCache = useRef<{
     graph: Graph;
@@ -63,9 +65,34 @@ export default function GraphCanvas({
     positions: Partial<Record<'network' | 'records', Record<string, cytoscape.Position>>>;
   } | null>(null);
   const dark = appearance === 'dark';
+  const selectionRef = useRef({ selection, edgeLabels });
+  useEffect(() => {
+    selectionRef.current = { selection, edgeLabels };
+  }, [selection, edgeLabels]);
+  const highlight = (cy: Core) => {
+    const { selection: active, edgeLabels: labels } = selectionRef.current;
+    const classes = networkClasses(graph, active, labels);
+    cy.batch(() => {
+      cy.elements().forEach((element) => {
+        const next = classes.get(element.id()) || '';
+        if (element.classes().join(' ') !== next) element.classes(next);
+      });
+    });
+  };
+  const highlightRef = useRef(highlight);
+  useEffect(() => {
+    highlightRef.current = highlight;
+  });
   useEffect(() => {
     const element = container.current;
     if (!element) return;
+    const stage = (name: string, start: number) => {
+      const key = `domino.graph.${name}`;
+      performance.clearMeasures(key);
+      performance.measure(key, { start, end: performance.now() });
+    };
+    const createStart = performance.now();
+    const controller = new AbortController();
     const records = presentation === 'records';
     if (
       !layoutCache.current ||
@@ -81,7 +108,7 @@ export default function GraphCanvas({
     const dense = graph.nodes.length > 120;
     const cy = cytoscape({
       container: element,
-      elements: networkElements(graph, rootId),
+      elements: [],
       layout: { name: 'preset' },
       pixelRatio: Math.min(window.devicePixelRatio, dense ? 1 : 1.75),
       minZoom: 0.08,
@@ -202,7 +229,9 @@ export default function GraphCanvas({
             'underlay-opacity': records ? 0 : 0.2,
             'underlay-padding': 10,
             'font-size': 13,
-            'min-zoomed-font-size': 0,
+            // Wide neighborhoods must not rasterize dozens of unreadable
+            // 3–7px labels. Selection/hover still names the individual record.
+            'min-zoomed-font-size': 9,
             color: dark ? '#edf3ff' : '#213d60',
           },
         },
@@ -214,6 +243,7 @@ export default function GraphCanvas({
             'underlay-color': '#ffb675',
             'underlay-opacity': records ? 0 : 0.17,
             'underlay-padding': 15,
+            'min-zoomed-font-size': 0,
           },
         },
         {
@@ -224,8 +254,12 @@ export default function GraphCanvas({
             'line-color': '#91b5f0',
             'target-arrow-color': '#91b5f0',
             label: 'data(label)',
-            'min-zoomed-font-size': 0,
+            'min-zoomed-font-size': 8,
           },
+        },
+        {
+          selector: 'edge.is-selected',
+          style: { label: 'data(label)', 'min-zoomed-font-size': 0 },
         },
         { selector: 'edge.show-relation-labels', style: { label: 'data(label)' } },
         {
@@ -234,12 +268,15 @@ export default function GraphCanvas({
             'border-color': '#fff',
             'border-width': 2.5,
             'underlay-opacity': records ? 0 : 0.2,
+            'min-zoomed-font-size': 0,
           },
         },
       ] as cytoscape.StylesheetStyle[],
     });
+    stage('create', createStart);
     core.current = cy;
     let disposed = false;
+    let populated = false;
     let arrangeVersion = 0;
     let arranged = false;
     let cancelLayout: (() => void) | undefined;
@@ -263,18 +300,10 @@ export default function GraphCanvas({
       let spatialPositions: Record<string, cytoscape.Position> | undefined;
       if (layout === 'fcose' && graph.nodes.length > 2) {
         element.setAttribute('aria-busy', 'true');
-        // A readable resting state appears immediately while the expensive
-        // arrangement runs away from the interaction/rendering thread.
-        cy.layout({
-          name: 'concentric',
-          animate: false,
-          fit: true,
-          padding: 30,
-          minNodeSpacing: 65,
-          concentric: (node: cytoscape.NodeSingular) => (node.data('root') ? 2 : 1),
-          levelWidth: () => 1,
-        } as cytoscape.LayoutOptions).run();
+        // Existing preset positions already provide the resting state. Do not
+        // run a second synchronous layout before the worker can even start.
         try {
+          const measureStart = performance.now();
           const task = spatialLayout({
             nodes: cy.nodes().map((node) => {
               const box = node.boundingBox({ includeLabels: true, includeOverlays: false });
@@ -284,17 +313,16 @@ export default function GraphCanvas({
                 height: Math.max(node.outerHeight(), box.h),
               };
             }),
-            edges: cy
-              .edges()
-              .map((edge) => ({
-                id: edge.id(),
-                source: edge.source().id(),
-                target: edge.target().id(),
-              })),
+            edges: graph.edges.map((edge) => ({
+              id: `edge:${edge.id}`,
+              source: `node:${edge.source}`,
+              target: `node:${edge.target}`,
+            })),
             records,
             dense,
           });
           cancelLayout = task.cancel;
+          stage('measure-and-dispatch', measureStart);
           spatialPositions = await task.promise;
           if (!disposed) setLayoutNote('');
         } catch {
@@ -342,37 +370,112 @@ export default function GraphCanvas({
               }
             : { ...common, spacingFactor: 1.3, circle: name === 'circle' };
       cy.resize();
+      const applyStart = performance.now();
       if (spatialPositions) {
-        cy.nodes().positions((node) => spatialPositions[node.id()] ?? node.position());
+        // Orient/compact coordinates before touching the renderer. Moving,
+        // fitting, rotating and fitting again invalidated the same edges twice.
+        let x1 = Infinity,
+          y1 = Infinity,
+          x2 = -Infinity,
+          y2 = -Infinity;
+        cy.nodes().forEach((node) => {
+          const point = spatialPositions[node.id()];
+          x1 = Math.min(x1, point.x - node.outerWidth() / 2);
+          x2 = Math.max(x2, point.x + node.outerWidth() / 2);
+          y1 = Math.min(y1, point.y - node.outerHeight() / 2);
+          y2 = Math.max(y2, point.y + node.outerHeight() / 2);
+        });
+        const rotate = y2 - y1 > x2 - x1 && element.clientWidth > element.clientHeight * 1.3;
+        const scale = graph.nodes.length < 30 && !records ? 0.7 : 1;
+        cy.nodes().positions((node) => {
+          const point = spatialPositions[node.id()];
+          return {
+            x: (rotate ? point.y : point.x) * scale,
+            y: (rotate ? point.x : point.y) * scale,
+          };
+        });
         cy.fit(undefined, records ? 40 : 30);
       } else cy.layout(options as cytoscape.LayoutOptions).run();
-      // Rotate a tall force layout to suit a landscape canvas; topology is unchanged.
-      const bounds = cy.nodes().boundingBox({ includeLabels: false });
-      if (
-        name === 'fcose' &&
-        bounds.h > bounds.w &&
-        element.clientWidth > element.clientHeight * 1.3
-      ) {
-        cy.nodes().positions((node) => ({ x: node.position('y'), y: node.position('x') }));
-        cy.fit(undefined, 30);
-      }
-      if (name === 'fcose' && graph.nodes.length < 30 && !records) {
-        // Small neighborhoods need readable record targets, rather than a distant overview.
-        cy.nodes().positions((node) => ({
-          x: node.position('x') * 0.7,
-          y: node.position('y') * 0.7,
-        }));
-        cy.fit(undefined, 30);
-      }
       if (cy.zoom() > 1.35) {
         cy.zoom(1.35);
         cy.center();
       }
       arranged = true;
       element.setAttribute('aria-busy', 'false');
+      stage('apply-layout', applyStart);
     };
-    relayout.current = () => void arrange(true);
-    arrange();
+    relayout.current = () => {
+      if (populated) void arrange(true);
+    };
+    const initialize = async () => {
+      setPreparing(true);
+      element.setAttribute('aria-busy', 'true');
+      const initialClasses = networkClasses(
+        graph,
+        selectionRef.current.selection,
+        selectionRef.current.edgeLabels,
+      );
+      const elements: cytoscape.ElementDefinition[] = networkElements(graph, rootId).map(
+        (element) => ({ ...element, classes: initialClasses.get(element.data.id) }),
+      );
+      // Frame each small insertion at its final overview scale, avoiding an
+      // initial full-size text rasterization for every record at zoom=1.
+      const nodes = elements.filter((item) => item.position);
+      if (nodes.length) {
+        const xs = nodes.map((item) => item.position!.x),
+          ys = nodes.map((item) => item.position!.y);
+        const x1 = Math.min(...xs) - 100,
+          x2 = Math.max(...xs) + 100;
+        const y1 = Math.min(...ys) - 100,
+          y2 = Math.max(...ys) + 100;
+        const scale = Math.min(
+          element.clientWidth / (x2 - x1),
+          element.clientHeight / (y2 - y1),
+          1.35,
+        );
+        cy.viewport({
+          zoom: Math.max(0.08, scale),
+          pan: {
+            x: element.clientWidth / 2 - ((x1 + x2) / 2) * scale,
+            y: element.clientHeight / 2 - ((y1 + y2) / 2) * scale,
+          },
+        });
+      }
+      if (layout === 'fcose') {
+        // Position the nodes before introducing curves. Repositioning an
+        // already-complete graph made the renderer recalculate every edge in
+        // one frame, defeating otherwise progressive initialization.
+        await populateGraph(
+          cy,
+          elements.filter((element) => !element.data.source),
+          controller.signal,
+        );
+        await nextGraphFrame(controller.signal);
+        await arrange();
+        controller.signal.throwIfAborted();
+        element.setAttribute('aria-busy', 'true');
+        await populateGraph(
+          cy,
+          elements.filter((element) => element.data.source),
+          controller.signal,
+        );
+      } else {
+        await populateGraph(cy, elements, controller.signal);
+        await nextGraphFrame(controller.signal);
+        await arrange();
+      }
+      populated = true;
+      highlightRef.current(cy);
+      element.setAttribute('aria-busy', 'false');
+      setPreparing(false);
+    };
+    void initialize().catch(() => {
+      if (!disposed) {
+        setPreparing(false);
+        setLayoutNote('Graph preparation was interrupted. Rearrange or reopen this view.');
+        element.setAttribute('aria-busy', 'false');
+      }
+    });
     cy.on('tap', 'node', (event) =>
       onSelectRef.current({ kind: 'node', id: event.target.data('entityId') }),
     );
@@ -406,6 +509,7 @@ export default function GraphCanvas({
       resizeFrame = requestAnimationFrame(() => {
         if (!cy.destroyed() && element.clientWidth > 0 && element.clientHeight > 0) {
           cy.resize();
+          if (!populated) return;
           cy.fit(undefined, 30);
           if (cy.zoom() > 1.35) {
             cy.zoom(1.35);
@@ -417,6 +521,7 @@ export default function GraphCanvas({
     observer.observe(element);
     return () => {
       disposed = true;
+      controller.abort();
       cancelLayout?.();
       observer.disconnect();
       cancelAnimationFrame(resizeFrame);
@@ -436,22 +541,7 @@ export default function GraphCanvas({
   useEffect(() => {
     const cy = core.current;
     if (!cy) return;
-    cy.batch(() => {
-      cy.elements().removeClass('dimmed path-focus is-selected show-relation-labels');
-      if (edgeLabels) cy.edges().addClass('show-relation-labels');
-      if (selection) {
-        const target = cy.getElementById(`${selection.kind}:${selection.id}`);
-        if (target.length) {
-          cy.elements().addClass('dimmed');
-          const related =
-            selection.kind === 'edge'
-              ? target.add(target.connectedNodes())
-              : target.closedNeighborhood();
-          related.removeClass('dimmed').addClass('path-focus');
-          target.addClass('is-selected');
-        }
-      }
-    });
+    highlightRef.current(cy);
   }, [selection, graph, layout, presentation, rootId, edgeLabels]);
   const focusSelected = () => {
     const cy = core.current;
@@ -557,6 +647,11 @@ export default function GraphCanvas({
       {layoutNote && layout === 'fcose' && (
         <p className="network-layout-note" role="status">
           {layoutNote}
+        </p>
+      )}
+      {preparing && (
+        <p className="network-layout-note" role="status">
+          Preparing graph view…
         </p>
       )}
     </div>

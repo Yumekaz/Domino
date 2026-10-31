@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { networkElements } from './network-elements';
+import { networkElements, networkClasses } from './network-elements';
 import type { Graph } from '../../api/schemas';
 const graph: Graph = {
   nodes: [
@@ -50,5 +50,24 @@ describe('network presentation boundaries', () => {
     expect(
       networkElements(graph).find((element) => element.data.id === 'edge:import')?.data,
     ).toMatchObject({ source: 'node:b', target: 'node:a', verification: 'observed' });
+  });
+  it('prepares selected neighborhoods without hiding unrelated records permanently', () => {
+    const selected = networkClasses(graph, { kind: 'node', id: 'a' }, false);
+    expect(selected.get('node:a')).toBe('path-focus is-selected');
+    expect(selected.get('node:b')).toBe('path-focus');
+    expect(selected.get('node:c')).toBe('dimmed');
+    expect(selected.get('edge:import')).toBe('path-focus');
+    expect([...networkClasses(graph, null, false).values()].every((value) => value === '')).toBe(
+      true,
+    );
+  });
+  it('selects an edge and only its endpoints while retaining the labels toggle', () => {
+    const selected = networkClasses(graph, { kind: 'edge', id: 'import' }, true);
+    expect(selected.get('edge:import')).toBe('path-focus is-selected show-relation-labels');
+    expect(selected.get('node:a')).toBe('path-focus');
+    expect(selected.get('node:c')).toBe('dimmed');
+    expect(networkClasses(graph, { kind: 'node', id: 'unavailable' }, false).get('node:a')).toBe(
+      '',
+    );
   });
 });

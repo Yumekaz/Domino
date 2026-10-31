@@ -22,11 +22,13 @@ import {
 import { useRepo } from '../Workspace';
 import { EntityIcon, EntityInspector } from '../investigations';
 import type { GraphSelection } from './GraphCanvas';
+import GraphRecords from './GraphRecords';
 const GraphCanvas = lazy(() => import('./GraphCanvas'));
 export default function GraphPage() {
   const { repoId, repository, focus, setFocus } = useRepo();
   const [selection, setSelection] = useState<GraphSelection>(null);
   const [expanded, setExpanded] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [depth, setDepth] = useState<1 | 2 | 3>(2);
   const [domain, setDomain] = useState('all');
   const [kind, setKind] = useState('all');
@@ -380,29 +382,13 @@ export default function GraphPage() {
                 </aside>
               ) : null}
             </div>
-            <details className="graph-accessible-list">
+            <details
+              className="graph-accessible-list"
+              open={recordsOpen}
+              onToggle={(event) => setRecordsOpen(event.currentTarget.open)}
+            >
               <summary>Keyboard-accessible graph records and relationships</summary>
-              <h3>Records in this neighborhood</h3>
-              <div>
-                {graph.nodes.map((n) => (
-                  <button key={n.id} onClick={() => setSelection({ kind: 'node', id: n.id })}>
-                    <EntityIcon kind={n.kind} />
-                    {n.title}
-                    <Badge>{n.kind}</Badge>
-                  </button>
-                ))}
-              </div>
-              <h3>Relationships in this neighborhood</h3>
-              <div>
-                {graph.edges.map((e) => (
-                  <button key={e.id} onClick={() => setSelection({ kind: 'edge', id: e.id })}>
-                    {graph.nodes.find((n) => n.id === e.source)?.title} →{' '}
-                    {graph.nodes.find((n) => n.id === e.target)?.title}
-                    <Badge>{e.kind}</Badge>
-                    <Badge>{e.verification}</Badge>
-                  </button>
-                ))}
-              </div>
+              {recordsOpen && <GraphRecords graph={graph} onSelect={setSelection} />}
             </details>
           </>
         )
