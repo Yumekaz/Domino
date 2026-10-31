@@ -1,0 +1,49 @@
+name: Backend checks
+on:
+  pull_request:
+  push:
+    branches: [main, codex/backend-integration]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: domino
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: domino_a_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U domino -d domino_a_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DOMINO_TEST_DATABASE_URL: postgresql://domino:ci-only-password@127.0.0.1:5432/domino_a_test
+      DOMINO_ALLOW_POSTGRES_TESTS: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.11.1"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - name: Run B history tests when the reviewed packages are present
+        shell: bash
+        run: |
+          if [ -d packages/core/history/test ]; then
+            npx tsc -p tsconfig.history.integration.json
+            node --test packages/core/history/test/*.test.ts packages/core/evidence/test/*.test.ts packages/core/knowledge-risk/test/*.test.ts packages/git-adapter/test/*.test.ts packages/github-adapter/test/*.test.ts packages/llm-adapter/test/*.test.ts packages/retrieval/test/*.test.ts apps/worker/src/handlers/history/test/*.test.ts
+          fi
+      - name: Preserve frontend build and tests
+        working-directory: apps/web
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+          npm run verify:production
