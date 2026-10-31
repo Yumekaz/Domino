@@ -1,8 +1,9 @@
 # Structural impact and PR checks
 
 Role C implementation notes, 31 October 2026. This document describes the deterministic structural
-analysis delivered in `codex/backend-c`. It does not claim that shared contracts, database
-persistence, API routes or live GitHub Actions execution are complete; those remain A/B gates.
+analysis delivered in `codex/backend-c` and integrated with A/B/D. Database persistence, API routes,
+the worker structural stage and the manual PR run service are now wired. Genuine remote Actions
+execution, deployment and a fresh live import through the integrated worker remain release gates.
 
 ## Data flow
 
@@ -40,26 +41,29 @@ persistence, API routes or live GitHub Actions execution are complete; those rem
      `pull-requests: read`; actions pinned by commit SHA.
    - Analyzer code is checked out from the exact **base** revision; the PR head is a separate
      read-only data checkout.
-   - Only the pinned analyzer dependency is installed (`npm ci --ignore-scripts`); target installs,
-     builds, hooks, scripts and configuration are never executed.
+   - The trusted analyzer workspace is installed from its committed lockfile with
+     `npm ci --ignore-scripts`; target installs, builds, hooks, scripts and configuration are never
+     executed.
    - Changed-file metadata comes from GitHub's read-only API with a 300-file bound; output is a
      real `GITHUB_STEP_SUMMARY`. No PR comment or database run is implied.
    - If the base revision does not yet contain the analyzer package, the workflow writes a
      “not yet bootstrapped” summary and skips analysis instead of failing or fabricating a result.
 
-## Integration with A and B
+## Integration with A, B and D
 
-- **A (contracts/database/API):** add `packages/dependency-adapter` and `packages/core/impact` to the
-  root workspaces/typecheck/test scripts. Implement `ImpactServiceSource` using A's
-  `publishedSnapshot` and `findReverseDependencies` functions; pass
-  `createImpactService(source)` as `deps.impact` in the API composition. Use
-  `toContractAnalysis`/`toContractAnalysisInput` when persisting PR runs, and `toContractImpact`
-  for stored impact output. A still owns route/DB/queue wiring.
-- **B (history/co-change):** B's `CoChangeConsumerPort` is adapted with
-  `createHistoryCoChangeReader(port)`; B computes the observed association. B's exact-SHA checkout
-  supplies `checkoutDir`/`checkoutSha` to the worker handler.
-- **D:** consumes A's `impactSchema`/`analysisSchema` through the existing frontend; no frontend
-  changes are in this branch.
+- **A (contracts/database/API):** the C packages are root workspaces and typecheck/test targets.
+  `apps/api/src/impact-services.ts` implements A's impact source over `publishedSnapshot` and
+  `findReverseDependencies`, and composes `createImpactService(source)` as the API impact port.
+  `apps/api/src/pr-services.ts` resolves the PR's exact revisions, persists a pollable
+  `analysis_runs` record and marks it stale with no result when the snapshot is not the PR head.
+  The import worker calls `apps/worker/src/structural.ts`, which runs the pinned analyzer on B's
+  exact-SHA checkout and stores dependencies plus `IMPORTS` edges while the snapshot is pending.
+- **B (history/co-change):** B's co-change dataset is read from its snapshot-scoped store; the API
+  passes the observed sample/window through C's contract mapping. B's exact-SHA checkout supplies
+  the analyzer workspace, and its File entities anchor the stored `IMPORTS` edges.
+- **D:** the web client consumes A's shared `impactSchema`/`analysisSchema`, displays real co-change
+  sample/window metadata, handles unknown/incomplete signals separately and adds risk pagination and
+  nullable-date handling. Fixture data uses contract-valid UUIDs.
 
 ## Measured evidence (C-01)
 
@@ -100,28 +104,27 @@ also produced the same paths from a fresh analyzer invocation.
 - Feature/test/decision mappings are omitted unless stored mappings exist.
 - Historical co-change is unavailable to the read-only workflow because it needs the indexed
   dataset; the API path can return it separately through B's port.
-- Shared Zod/API contracts are now available on integration; C maps its domain result to A's
-  `impactSchema`/`analysisSchema` in contract tests. A still owns route/DB wiring.
-- Database persistence, API routes/job registration, and genuine remote Actions execution remain
-  A/B gates. C-02/C-05/C-07 are implemented against ports and tested in memory; C-09 is not
-  performed.
+- Shared Zod/API contracts are integrated; C maps its domain result to A's
+  `impactSchema`/`analysisSchema` in contract tests.
+- Database persistence and API routes are wired. The worker-side analysis handler remains available
+  for a future queue-based fresh-checkout refresh but is not the manual API path. Genuine remote
+  Actions execution (C-09) and a fresh live import through the integrated worker are not performed.
 
 ## Verification
 
 ```powershell
-cd packages/dependency-adapter
-npm ci --ignore-scripts
-node --test test/*.test.ts
-./node_modules/.bin/tsc -p tsconfig.json --noEmit
+# From the repository root after npm install
+npm run typecheck:impact
+npm run test:impact
+npm test
 
-cd ../core/impact
-node --test test/*.test.ts
-../../dependency-adapter/node_modules/.bin/tsc -p tsconfig.json --noEmit
-
-cd ../../../apps/worker/src/handlers/analysis
-node --test test/*.test.ts
-../../../../../packages/dependency-adapter/node_modules/.bin/tsc -p tsconfig.json --noEmit
-
-cd ../../../../../integrations/github-action
-node --test test/*.test.ts
+# Local PR-action dry run (real pinned analyzer, no remote execution)
+$env:DOMINO_ANALYZER_ROOT = (Resolve-Path .)
+$env:DOMINO_TARGET_ROOT = (Resolve-Path .)
+$env:DOMINO_TARGET_PATH = "apps/web/src"
+$env:DOMINO_TSCONFIG = "apps/web/tsconfig.json"
+$env:DOMINO_CHANGED_FILES_FILE = "changed-files.json"
+$env:GITHUB_EVENT_NAME = "pull_request"
+$env:GITHUB_EVENT_PATH = "event.json"
+node integrations/github-action/analyze-pr.mjs
 ```

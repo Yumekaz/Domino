@@ -12,7 +12,7 @@ observations at the PR head and writes a `GITHUB_STEP_SUMMARY`.
   repository secrets are passed to the job.
 - Analyzer code and configuration come from a separate checkout of the **base** revision
   (`analyzer/`). The PR head is checked out separately under `target/` and is treated only as data.
-- The workflow installs only the pinned analyzer dependency from
+- The workflow installs the trusted analyzer workspace from
   `analyzer/packages/dependency-adapter/package-lock.json` with `npm ci --ignore-scripts`. It never
   installs dependencies, runs scripts, builds, hooks, tests or configuration from the target
   repository.

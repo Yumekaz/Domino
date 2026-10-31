@@ -214,7 +214,7 @@ export const edgeSchema = z.object({
 });
 export const searchQuerySchema = z
   .object({
-    q: z.string().trim().min(1).max(500),
+    q: z.string().trim().max(500),
     limit: z.coerce.number().int().min(1).max(100).default(30),
     cursor: z.string().max(1024).optional(),
   })
@@ -491,6 +491,10 @@ export type GraphQuery = z.infer<typeof graphQuerySchema>;
 export type Answer = z.infer<typeof answerSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type Risk = z.infer<typeof riskSchema>;
+export type Source = z.infer<typeof sourceSchema>;
+export type Analysis = z.infer<typeof analysisSchema>;
+export type AskRequest = z.infer<typeof askRequestSchema>;
+export type ImpactRequest = z.infer<typeof impactRequestSchema>;
 export interface ImpactServicePort {
   analyze(
     repoId: string,

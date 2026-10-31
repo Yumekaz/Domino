@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   canonicalGithubUrl,
+  repositoryPathSchema,
   shaSchema,
 } from "../../../packages/contracts/src/index.ts";
 import { ApiFailure } from "./errors.ts";
@@ -167,5 +168,181 @@ export async function resolvePublicRepository(
     url: canonical,
     branch: repo.default_branch,
     headSha: commit.data.sha,
+  };
+}
+
+export interface PullRequestRecord {
+  number: number;
+  baseSha: string;
+  headSha: string;
+  prUrl: string;
+  changedFiles: string[];
+  truncated: boolean;
+}
+
+const prResponse = z.object({
+  number: z.number().int().positive(),
+  html_url: z.string().min(1),
+  base: z.object({ sha: shaSchema }),
+  head: z.object({ sha: shaSchema }),
+});
+const prFilesResponse = z.array(
+  z.object({
+    filename: z.string().min(1),
+    status: z.string().min(1),
+    previous_filename: z.string().min(1).optional(),
+  }),
+);
+
+function githubHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "domino-api/0.1",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+async function readGithubJson(
+  path: string,
+  headers: Record<string, string>,
+  notFoundCode = "SOURCE_NOT_FOUND",
+): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetch(`https://api.github.com${path}`, {
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    throw new ApiFailure(
+      503,
+      "GITHUB_UNAVAILABLE",
+      "GitHub could not be reached. Retry the request.",
+      true,
+    );
+  }
+  if (response.status === 404)
+    throw new ApiFailure(
+      404,
+      notFoundCode,
+      "The public GitHub record was not found.",
+    );
+  if (response.status === 403 || response.status === 429)
+    throw new ApiFailure(
+      503,
+      "GITHUB_RATE_LIMITED",
+      "GitHub refused the request or the rate limit was reached.",
+      true,
+    );
+  if (!response.ok)
+    throw new ApiFailure(
+      502,
+      "GITHUB_UNAVAILABLE",
+      "GitHub returned an unsuccessful response.",
+      true,
+    );
+  const size = Number(response.headers.get("content-length") || 0);
+  if (size > 1_000_000)
+    throw new ApiFailure(
+      502,
+      "GITHUB_RESPONSE_TOO_LARGE",
+      "GitHub response exceeded the configured limit.",
+    );
+  if (!response.body)
+    throw new ApiFailure(
+      502,
+      "GITHUB_INVALID_RESPONSE",
+      "GitHub returned an empty response.",
+    );
+  const reader = response.body.getReader();
+  const parts: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > 1_000_000) {
+        await reader.cancel();
+        throw new ApiFailure(
+          502,
+          "GITHUB_RESPONSE_TOO_LARGE",
+          "GitHub response exceeded the configured limit.",
+        );
+      }
+      parts.push(value);
+    }
+    return JSON.parse(Buffer.concat(parts).toString("utf8")) as unknown;
+  } catch (error) {
+    if (error instanceof ApiFailure) throw error;
+    throw new ApiFailure(
+      502,
+      "GITHUB_INVALID_RESPONSE",
+      "GitHub returned an invalid response.",
+    );
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Resolves a public pull request's exact revisions and bounded changed-file list. */
+export async function resolvePullRequest(
+  repoUrl: string,
+  prNumber: number,
+  token?: string,
+): Promise<PullRequestRecord> {
+  const canonical = canonicalGithubUrl(repoUrl);
+  if (!canonical)
+    throw new ApiFailure(
+      400,
+      "UNSUPPORTED_REPO",
+      "The repository is not a supported public GitHub repository.",
+    );
+  const [, , , owner, name] = canonical.split("/");
+  const headers = githubHeaders(token);
+  const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls/${prNumber}`;
+  const parsedPr = prResponse.safeParse(
+    await readGithubJson(base, headers, "PR_NOT_FOUND"),
+  );
+  if (!parsedPr.success || parsedPr.data.number !== prNumber)
+    throw new ApiFailure(
+      502,
+      "GITHUB_INVALID_RESPONSE",
+      "GitHub returned incomplete pull-request metadata.",
+    );
+  const pr = parsedPr.data;
+  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(pr.html_url))
+    throw new ApiFailure(
+      502,
+      "GITHUB_INVALID_RESPONSE",
+      "GitHub returned an unexpected pull-request URL.",
+    );
+  const changedFiles = new Set<string>();
+  let truncated = false;
+  for (let page = 1; page <= 3; page++) {
+    const files = prFilesResponse.parse(
+      await readGithubJson(
+        `${base}/files?per_page=100&page=${page}`,
+        headers,
+        "PR_NOT_FOUND",
+      ),
+    );
+    for (const file of files) {
+      const path = repositoryPathSchema.safeParse(file.filename);
+      if (path.success) changedFiles.add(path.data);
+    }
+    if (files.length < 100) break;
+    if (page === 3) truncated = true;
+  }
+  return {
+    number: pr.number,
+    baseSha: pr.base.sha,
+    headSha: pr.head.sha,
+    prUrl: pr.html_url,
+    changedFiles: [...changedFiles].sort(),
+    truncated,
   };
 }

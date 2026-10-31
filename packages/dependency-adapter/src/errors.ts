@@ -3,7 +3,9 @@ export type DependencyAdapterErrorCode =
   | "ANALYZER_TIMEOUT"
   | "ANALYZER_FAILED"
   | "INVALID_ANALYZER_INPUT"
-  | "INVALID_ANALYZER_METADATA";
+  | "INVALID_ANALYZER_METADATA"
+  | "ANALYZER_NOT_FOUND"
+  | "ANALYZER_VERSION_MISMATCH";
 
 export class DependencyAdapterError extends Error {
   readonly code: DependencyAdapterErrorCode;

@@ -18,3 +18,8 @@ export type {
   DependencyObservation,
   StoredDependency,
 } from "./dependencies.ts";
+export {
+  replacePendingStructural,
+  readStructuralImports,
+} from "./impact.ts";
+export type { StructuralImportRecord } from "./impact.ts";

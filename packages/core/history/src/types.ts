@@ -68,7 +68,8 @@ export type SourceName =
   | "documents"
   | "timelines"
   | "gitHistory"
-  | "retrieval";
+  | "retrieval"
+  | "structural";
 
 export type CoverageStatus = "complete" | "partial" | "failed" | "not_attempted" | "cancelled";
 
@@ -312,6 +313,7 @@ export interface HistoryProgressEvent {
     | "fetching_github"
     | "checking_out_git"
     | "analyzing_history"
+    | "analyzing_structure"
     | "normalizing"
     | "linking"
     | "indexing_retrieval"

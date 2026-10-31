@@ -8,7 +8,9 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/core/evidence/package.json packages/core/evidence/package.json
 COPY packages/core/history/package.json packages/core/history/package.json
+COPY packages/core/impact/package.json packages/core/impact/package.json
 COPY packages/core/knowledge-risk/package.json packages/core/knowledge-risk/package.json
+COPY packages/dependency-adapter/package.json packages/dependency-adapter/package.json
 COPY packages/git-adapter/package.json packages/git-adapter/package.json
 COPY packages/github-adapter/package.json packages/github-adapter/package.json
 COPY packages/llm-adapter/package.json packages/llm-adapter/package.json

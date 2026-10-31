@@ -116,12 +116,28 @@ export type HistoryAnalyzer = (
   options: AnalyzeGitHistoryOptions,
 ) => Promise<GitHistoryAnalysis>;
 
+export interface StructuralAnalysisResult {
+  status: "complete" | "partial" | "failed";
+  items: number;
+  gaps: number;
+  excludedModules: number;
+  warnings: string[];
+}
+
+export type StructuralAnalysisHook = (input: {
+  repository: RepositoryRecord;
+  snapshotId: string;
+  headSha: string;
+  checkout: CheckoutHandle;
+}) => Promise<StructuralAnalysisResult>;
+
 export interface HistoryImportDeps {
   github: GithubApi;
   store: HistoryStore;
   clock: Clock;
   checkoutFactory?: CheckoutFactory;
   analyzer?: HistoryAnalyzer;
+  structural?: StructuralAnalysisHook;
   progress?: (event: HistoryProgressEvent) => void | Promise<void>;
   signal?: AbortSignal;
   gitBinary?: string;
@@ -330,6 +346,8 @@ export async function runHistoryImport(
       null,
       graph.warnings,
     );
+    // Entity versions are needed before structural analysis can attach IMPORT edges.
+    await deps.store.upsertEntities(graph.entities);
 
     const chunkResult = await buildEvidenceSources({
       repository,
@@ -371,17 +389,45 @@ export async function runHistoryImport(
       chunkResult.warnings,
     );
 
+    let structural: StructuralAnalysisResult | null = null;
+    if (deps.structural) {
+      await report(
+        "analyzing_structure",
+        "Analyzing structural imports at the indexed revision",
+      );
+      try {
+        structural = await deps.structural({
+          repository,
+          snapshotId: baseSnapshot.id,
+          headSha,
+          checkout,
+        });
+      } catch (error) {
+        structural = {
+          status: "failed",
+          items: 0,
+          gaps: 0,
+          excludedModules: 0,
+          warnings: [
+            `Structural analysis failed: ${errorMessage(error)}`,
+          ],
+        };
+      }
+    }
+
     const coverage = finalizeCoverage({
       githubCoverage: github.coverage,
       git,
       chunkResult,
       dataset,
       coChangeOptions,
+      structural,
       warnings: [
         ...github.warnings,
         ...graph.warnings,
         ...chunkResult.warnings,
         ...dataset.warnings,
+        ...(structural?.warnings ?? []),
       ],
     });
     coverageBuilder = coverage.builder;
@@ -390,7 +436,6 @@ export async function runHistoryImport(
     const completedAt = deps.clock.isoNow();
 
     await report("publishing", "Publishing snapshot and evidence index");
-    await deps.store.upsertEntities(graph.entities);
     await deps.store.upsertRelationships(relationships);
     await deps.store.replaceEvidenceChunks(chunkResult.chunks);
     await deps.store.replaceFileContributors(
@@ -767,6 +812,7 @@ function finalizeCoverage(input: {
   chunkResult: ChunkBuildResult;
   dataset: CoChangeDataset;
   coChangeOptions: HistoryCoChangeOptions;
+  structural: StructuralAnalysisResult | null;
   warnings: string[];
 }): { report: SnapshotRecord["coverage"]; builder: CoverageBuilder } {
   const limits: Record<string, number | string | boolean | null> = {
@@ -793,6 +839,9 @@ function finalizeCoverage(input: {
     coChangeWindowTo: input.dataset.window.to,
     evidenceChunks: input.chunkResult.chunks.length,
     indexedFiles: input.chunkResult.indexedFiles,
+    structuralImports: input.structural?.items ?? 0,
+    structuralGaps: input.structural?.gaps ?? 0,
+    structuralExcludedModules: input.structural?.excludedModules ?? 0,
   };
   const builder = new CoverageBuilder(limits);
   for (const [source, coverage] of Object.entries(input.githubCoverage.sources) as Array<
@@ -840,6 +889,19 @@ function finalizeCoverage(input: {
     capHit: input.chunkResult.capHit,
     window: null,
   });
+  if (input.structural) {
+    builder.start("structural");
+    for (const warning of input.structural.warnings) {
+      builder.update("structural", { warning });
+    }
+    builder.update("structural", {
+      status: input.structural.status,
+      pagesFetched: 1,
+      items: input.structural.items,
+      capHit: false,
+      window: null,
+    });
+  }
   for (const warning of input.warnings) {
     builder.addWarning(warning);
   }

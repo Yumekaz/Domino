@@ -6,6 +6,8 @@ import {
   createHistoryServices,
   type HistoryServices,
 } from "./history-services.ts";
+import { createImpactServices } from "./impact-services.ts";
+import { createPrCheckService } from "./pr-services.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
@@ -26,14 +28,41 @@ try {
     "History service is not installed; history-dependent routes are unavailable.",
   );
 }
+let impact: ReturnType<typeof createImpactServices>["impact"] | undefined;
+let prCheck: ReturnType<typeof createPrCheckService> | undefined;
+let closeImpact: (() => Promise<void>) | undefined;
+try {
+  const services = createImpactServices(pool, databaseUrl);
+  impact = services.impact;
+  closeImpact = services.close;
+  prCheck = createPrCheckService({
+    pool,
+    impact,
+    token: process.env.DOMINO_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN,
+  });
+} catch (error) {
+  console.warn(
+    "Impact services are unavailable; impact and PR routes will return typed errors.",
+    error instanceof Error ? error.message : "unknown error",
+  );
+}
 const allowedOrigins = process.env.DOMINO_ALLOWED_ORIGINS?.split(",")
   .map((s) => s.trim())
   .filter(Boolean);
-const app = createApp({ pool, boss, history, token, allowedOrigins });
+const app = createApp({
+  pool,
+  boss,
+  history,
+  impact,
+  prCheck,
+  token,
+  allowedOrigins,
+});
 await app.listen({ host, port: Number(process.env.PORT || 3000) });
 async function stop() {
   await app.close();
   if (history) await history.close();
+  if (closeImpact) await closeImpact();
   await boss.stop({ graceful: true });
   await pool.end();
 }

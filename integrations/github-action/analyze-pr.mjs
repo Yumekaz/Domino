@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import {
@@ -258,6 +258,40 @@ function autoDetectTsConfig(targetRoot, targetPath) {
   return undefined;
 }
 
+function resolveAnalyzerScript(analyzerRoot) {
+  const candidates = [
+    join(
+      analyzerRoot,
+      "packages/dependency-adapter/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs",
+    ),
+    join(analyzerRoot, "node_modules/dependency-cruiser/bin/dependency-cruiser.mjs"),
+  ];
+  for (const scriptPath of candidates) {
+    if (!existsSync(scriptPath)) continue;
+    const packageJsonPath = join(dirname(dirname(scriptPath)), "package.json");
+    try {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+      if (packageJson.version !== ANALYZER_VERSION) {
+        throw new PrImpactError(
+          "ANALYZER_VERSION_MISMATCH",
+          `The installed dependency-cruiser version does not match the pinned ${ANALYZER_VERSION}.`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof PrImpactError) throw error;
+      throw new PrImpactError(
+        "ANALYZER_NOT_FOUND",
+        "The dependency-cruiser package metadata could not be read.",
+      );
+    }
+    return scriptPath;
+  }
+  throw new PrImpactError(
+    "ANALYZER_NOT_FOUND",
+    "The pinned dependency-cruiser analyzer is not installed.",
+  );
+}
+
 async function main() {
   const startedAt = new Date().toISOString();
   let tempConfig;
@@ -317,10 +351,7 @@ async function main() {
       configHash,
       analyzedAt: startedAt,
     };
-    const scriptPath = resolve(
-      analyzerRoot,
-      "packages/dependency-adapter/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs",
-    );
+    const scriptPath = resolveAnalyzerScript(analyzerRoot);
     const analysis = await analyzeCheckout({
       scriptPath,
       workingDirectory: targetRoot,
