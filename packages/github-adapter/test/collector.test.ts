@@ -382,4 +382,3 @@ test("stops at the time budget and reports partial coverage", async () => {
   assert.ok(result.warnings.some((warning) => /time budget/i.test(warning)));
   assert.notEqual(result.coverage.sources.pullRequests?.status, "complete");
 });
-
