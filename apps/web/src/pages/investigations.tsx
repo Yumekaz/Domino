@@ -360,7 +360,16 @@ export function AskPage() {
                   ]}
                 />
               )}
-              <Warnings warnings={ask.data.warnings} />
+              {ask.data.warnings.length > 0 && (
+                <details className="index-notes">
+                  <summary>
+                    <Shield size={15} />
+                    <span>Review answer coverage and validation notes</span>
+                    <Badge tone="orange">{ask.data.warnings.length} NOTES</Badge>
+                  </summary>
+                  <Warnings warnings={ask.data.warnings} />
+                </details>
+              )}
               {ask.data.status === 'unavailable' ? (
                 <div className="state-box" role="status">
                   <HelpCircle size={26} strokeWidth={1.4} />

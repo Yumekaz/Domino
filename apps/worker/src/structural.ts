@@ -60,7 +60,7 @@ export function createStructuralAnalysis(
       { owner: input.repository.owner, name: input.repository.name },
       input.headSha,
     );
-    const warnings: string[] = [];
+    const warnings: string[] = [...(normalized.limitations ?? [])];
     if (stored.missingEntities > 0) {
       warnings.push(
         `${stored.missingEntities} analyzed path(s) are not represented as File records in this snapshot; their IMPORT edges were not created. Change impact still uses the stored dependencies.`,
@@ -92,7 +92,7 @@ export function createStructuralAnalysis(
       );
     }
     return {
-      status: "complete",
+      status: normalized.limitations?.length ? "partial" : "complete",
       items: stored.dependencies,
       gaps: normalized.gaps.length,
       excludedModules: normalized.excludedModules.length,

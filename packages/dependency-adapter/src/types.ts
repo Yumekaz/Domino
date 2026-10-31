@@ -71,6 +71,8 @@ export type AnalyzerGap = {
 
 export type NormalizedStructuralAnalysis = {
   metadata: AnalyzerMetadata;
+  /** Analysis limitations introduced by a degraded analyzer configuration. */
+  limitations?: string[];
   imports: StructuralImport[];
   gaps: AnalyzerGap[];
   excludedModules: string[];

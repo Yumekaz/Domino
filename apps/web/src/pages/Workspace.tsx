@@ -560,7 +560,16 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
             <progress max="100" value={job.data.progress} aria-label="Reported import progress" />
           )}
           {job.data.error && <p className="field-error">{job.data.error}</p>}
-          <Warnings warnings={job.data.warnings} />
+          {job.data.warnings.length > 0 && (
+            <details className="index-notes">
+              <summary>
+                <Shield size={15} />
+                <span>Review import warnings</span>
+                <Badge tone="orange">{job.data.warnings.length} NOTES</Badge>
+              </summary>
+              <Warnings warnings={job.data.warnings} />
+            </details>
+          )}
           {job.data.status === 'failed' && (
             <p>Review the import error, then use Refresh index to start a new job.</p>
           )}

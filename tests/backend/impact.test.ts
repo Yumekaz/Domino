@@ -355,6 +355,22 @@ describe("worker structural analysis", () => {
     );
     expect(edges.rows.some((edge) => edge.kind === "IMPORTS")).toBe(true);
   });
+  it("marks structural coverage partial when a missing extended tsconfig requires fallback", async () => {
+    await writeFile(join(directory, "tsconfig.json"), JSON.stringify({ extends: "@unavailable/tsconfig" }));
+    const result = await createStructuralAnalysis(pool, { repoId: repo, githubId: 42 })({
+      repository: {
+        id: repo, githubId: 42, owner: "owner", name: "repo", defaultBranch: "main",
+        visibility: "public", htmlUrl: "https://github.com/owner/repo", createdAt: new Date().toISOString(),
+      } as RepositoryRecord,
+      snapshotId: snapshot,
+      headSha: sha,
+      checkout: { directory } as unknown as CheckoutHandle,
+    });
+    expect(result.status).toBe("partial");
+    expect(result.warnings.some((warning) => /aliases.*may be missing/.test(warning))).toBe(true);
+    const stored = await readStructuralImports(pool, repo, snapshot, sha);
+    expect(stored.some((item) => item.importer === "src/session.ts" && item.imported === "src/auth.ts")).toBe(true);
+  });
 });
 
 describe("manual PR analysis persistence", () => {

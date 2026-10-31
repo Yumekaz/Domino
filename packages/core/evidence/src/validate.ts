@@ -204,6 +204,12 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
     }
     const bodies = evidenceIds.map((id) => storedById.get(id)?.body ?? "");
     const unionText = bodies.join("\n\n");
+    // Token overlap alone can accept a claim that reverses a source by adding
+    // "not". This is a narrow safeguard, not semantic entailment checking.
+    if (hasExplicitNegation(claim.text) && !hasExplicitNegation(unionText)) {
+      outcome.reason = "Claim contains negation absent from its cited source text";
+      continue;
+    }
     const relationshipFailure = checkRelationshipClaim(claim.text, pack);
     if (relationshipFailure !== null) {
       outcome.reason = relationshipFailure;
@@ -330,6 +336,10 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
     warnings,
     validation,
   };
+}
+
+function hasExplicitNegation(text: string): boolean {
+  return /\b(?:not|no|never|neither|nor|without|cannot)\b|\b\w+n['’]t\b|\bnon[-‐‑]\w+/i.test(text);
 }
 
 function buildSources(ids: string[], packById: Map<string, EvidencePack["chunks"][number]>): AskSource[] {

@@ -86,17 +86,23 @@ export async function analyzeRepositoryCheckout(input: {
       `The installed dependency-cruiser version ${entry.version} does not match the pinned ${ANALYZER_VERSION}.`,
     );
   }
+  const hasConfig = await hasTsconfig(input.workingDirectory);
   const config = buildDependencyCruiserConfig({
-    ...((await hasTsconfig(input.workingDirectory))
+    ...(hasConfig
       ? { tsConfigPath: "tsconfig.json" }
       : {}),
   });
-  const configHash = hashAnalyzerConfiguration(entry.version, config);
   const configDir = await mkdtemp(join(tmpdir(), "domino-analyzer-"));
   const configPath = join(configDir, "dependency-cruiser.json");
-  await writeFile(configPath, JSON.stringify(config), "utf8");
-  try {
-    return await analyzeCheckout({
+  const startedAt = Date.now();
+  const timeoutMs = input.timeoutMs ?? 120_000;
+  const run = async (selectedConfig: typeof config) => {
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    if (remainingMs <= 0) {
+      throw new DependencyAdapterError("ANALYZER_TIMEOUT", "The structural analysis budget was exhausted.");
+    }
+    await writeFile(configPath, JSON.stringify(selectedConfig), "utf8");
+    return analyzeCheckout({
       scriptPath: entry.scriptPath,
       workingDirectory: input.workingDirectory,
       targetDir: ".",
@@ -106,12 +112,25 @@ export async function analyzeRepositoryCheckout(input: {
         snapshotSha: input.snapshotSha,
         analyzer: EXTRACTOR,
         version: entry.version,
-        configHash,
+        configHash: hashAnalyzerConfiguration(entry.version, selectedConfig),
         analyzedAt: new Date().toISOString(),
       },
-      ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+      timeoutMs: remainingMs,
       ...(input.maxBufferBytes === undefined ? {} : { maxBufferBytes: input.maxBufferBytes }),
     });
+  };
+  try {
+    try {
+      return await run(config);
+    } catch (error) {
+      if (!hasConfig || !(error instanceof DependencyAdapterError) || error.code !== "ANALYZER_FAILED" ||
+          !/\bTS6053: File [^\r\n]+ not found\./.test(error.message)) throw error;
+      const fallback = await run(buildDependencyCruiserConfig());
+      return {
+        ...fallback,
+        limitations: ["The repository TypeScript configuration could not be resolved. Analysis ran without it; aliases and other configuration-dependent imports may be missing."],
+      };
+    }
   } finally {
     await rm(configDir, { recursive: true, force: true }).catch(() => {});
   }

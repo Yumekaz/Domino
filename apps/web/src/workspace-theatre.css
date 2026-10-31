@@ -339,11 +339,20 @@
   color: #8fafde;
 }
 .desktop-workspace .coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 0;
+  overflow: hidden;
   background: #101e30;
   border-color: #2a3f5d;
 }
+.desktop-workspace .coverage-grid > div {
+  min-width: 0;
+  background: #101e30;
+  box-shadow: inset -1px -1px #2a3f5d;
+}
 .desktop-workspace .coverage-grid > div + div {
-  border-color: #2a3f5d;
+  border: 0;
 }
 .desktop-workspace .coverage-grid strong {
   color: #b6c9e5;
@@ -356,6 +365,7 @@
   background: #1d2e44;
   border-color: #354e6d;
   color: #8eabc9;
+  white-space: nowrap;
 }
 .desktop-workspace .section-label {
   color: #96afce;

@@ -33,6 +33,19 @@ The source validator checks citation membership and conservative lexical
 overlap; it is not a proof of semantic entailment. Review the actual source
 before presenting a generated claim as fact. Source excerpts can be bounded and
 their original GitHub links remain the definitive context.
+An explicit-negation check rejects one class of contradiction when the cited
+sources contain no negation, but it does not establish which statement a
+negation applies to or detect all contradictory paraphrases.
+
+For a larger graph, a separate rehearsal indexed the public `sindresorhus/ky`
+repository at `3541888878c4d303a8bc2ad61815f4e048f55a5d`. It returned 182
+structural imports with **partial** coverage because its extended TypeScript
+configuration was unavailable. A three-hop neighborhood of `source/core/Ky.ts`
+showed 79 records and 275 relationships; the graph is bounded, not a complete
+repository-wide map. Search results are paginated: use **Load more starting
+points** if a file is preceded by many historical revisions. Initial layout
+changes can still pause briefly on this machine; test the actual presentation
+hardware before relying on this larger view.
 
 The user has deferred automatic GitHub-summary work for this pass. The local
 walkthrough does not establish a hosted deployment, a full browser/accessibility

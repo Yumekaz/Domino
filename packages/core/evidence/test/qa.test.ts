@@ -159,6 +159,56 @@ test("does not expose unvalidated facts from a model's separate answer summary",
   assert.doesNotMatch(result.answer ?? "", /Queen Elizabeth/);
 });
 
+test("rejects an explicitly negated claim when the cited source contains no negation", async () => {
+  const fixture = await createQaFixture();
+  const provider = new FakeProvider(() => jsonResponse({
+    status: "supported",
+    answer: "The behavior is not intended, and a separate method is called drain.",
+    claims: [{
+      text: "The behavior is not intended, and a separate method is called drain.",
+      evidenceIds: [fixture.chunkIds.comment],
+      support: "documented",
+    }],
+  }));
+  const result = await askQuestion(
+    { repoId: fixture.repoId, snapshotId: fixture.snapshotId, question: "Why does the iterator behave this way?" },
+    {
+      retriever: new DefaultEvidenceRetriever({ store: fixture.store }),
+      store: fixture.store,
+      llm: provider,
+      clock: { isoNow: () => "2026-10-31T00:00:00.000Z" },
+    },
+  );
+  assert.equal(result.status, "not_found");
+  assert.equal(result.claims.length, 0);
+});
+
+test("does not reject a negated claim solely because it is negated when its source states it", async () => {
+  const fixture = await createQaFixture();
+  const [chunk] = await fixture.store.getEvidenceChunks(
+    fixture.repoId, fixture.snapshotId, [fixture.chunkIds.comment],
+  );
+  assert.ok(chunk);
+  const body = "The iterator does not dequeue items. A separate method called drain was suggested.";
+  await fixture.store.replaceEvidenceChunks([{ ...chunk, body, excerpt: body }]);
+  const provider = new FakeProvider(() => jsonResponse({
+    status: "supported",
+    answer: body,
+    claims: [{ text: "The iterator does not dequeue items.", evidenceIds: [chunk.id], support: "documented" }],
+  }));
+  const result = await askQuestion(
+    { repoId: fixture.repoId, snapshotId: fixture.snapshotId, question: "Why does the iterator behave this way?" },
+    {
+      retriever: new DefaultEvidenceRetriever({ store: fixture.store }),
+      store: fixture.store,
+      llm: provider,
+      clock: { isoNow: () => "2026-10-31T00:00:00.000Z" },
+    },
+  );
+  assert.equal(result.status, "supported");
+  assert.equal(result.claims.length, 1);
+});
+
 test("preserves a model's partial status when its accepted claims do not fully answer the question", async () => {
   const fixture = await createQaFixture();
   const provider = new FakeProvider(() => jsonResponse({

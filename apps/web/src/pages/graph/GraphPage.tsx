@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Expand, Network, Search, Maximize2, Minimize2 } from 'lucide-react';
 import { graphRecordColors } from './network-elements';
 import { returnedEntityKinds } from '../../api/entity-kinds';
@@ -37,11 +37,14 @@ export default function GraphPage() {
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const root = focus || (fixtureMode ? fixtureAuthId : '');
-  const searchQuery = useQuery({
+  const searchQuery = useInfiniteQuery({
     queryKey: ['graph-search', repoId, term],
-    queryFn: ({ signal }) => api.search(repoId, term, undefined, signal),
+    queryFn: ({ pageParam, signal }) => api.search(repoId, term, pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor || undefined,
     enabled: !!term,
   });
+  const searchResults = searchQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const query = useQuery({
     queryKey: ['graph', repoId, repository.snapshot?.id, root, depth, inferred],
     queryFn: ({ signal }) =>
@@ -127,17 +130,18 @@ export default function GraphPage() {
         />
         <Button variant="secondary">Find a starting point</Button>
       </form>
-      {searchQuery.isFetching ? (
+      {searchQuery.isPending && searchQuery.isFetching ? (
         <Loading text="Finding graph starting points" />
-      ) : searchQuery.isError ? (
+      ) : searchQuery.isError && !searchQuery.data ? (
         <ErrorState error={searchQuery.error} />
       ) : (
         term && (
           <div className="graph-search-results">
-            {searchQuery.data?.items.length ? (
-              searchQuery.data.items.map((n) => (
+            {searchResults.length ? (
+              searchResults.map((n) => (
                 <button
                   key={n.id}
+                  aria-label={`${n.title} — ${n.kind}`}
                   onClick={() => {
                     setFocus(n.id);
                     setSelection({ kind: 'node', id: n.id });
@@ -151,6 +155,18 @@ export default function GraphPage() {
               ))
             ) : (
               <p>No matching indexed records.</p>
+            )}
+            {searchQuery.isFetchNextPageError && (
+              <ErrorState error={searchQuery.error} retry={() => searchQuery.fetchNextPage()} />
+            )}
+            {searchQuery.hasNextPage && (
+              <Button
+                variant="secondary"
+                disabled={searchQuery.isFetchingNextPage}
+                onClick={() => void searchQuery.fetchNextPage()}
+              >
+                {searchQuery.isFetchingNextPage ? 'Loading…' : 'Load more starting points'}
+              </Button>
             )}
           </div>
         )
