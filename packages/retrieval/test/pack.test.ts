@@ -234,6 +234,26 @@ test("focus evidence remains available when full-text search has no hits", async
   }
 });
 
+test("reserves the first prompt slot for a focused file even when discussion hits fill the budget", async () => {
+  const { testStore } = await seed();
+  try {
+    const fileId = entityId(REPO, "File", canonicalFileKey("src/file-00.ts"));
+    const pack = await new DefaultEvidenceRetriever({ store: testStore.store }).buildPack({
+      repoId: REPO,
+      snapshotId: SNAPSHOT,
+      question: "drain method",
+      focusEntityId: fileId,
+      maxChunks: 2,
+      maxNeighbors: 0,
+      maxNeighborChunks: 0,
+    });
+    assert.equal(pack.chunks[0]?.entityId, fileId);
+    assert.ok(pack.chunks.some((chunk) => chunk.sourceKind !== "file_excerpt"));
+  } finally {
+    await testStore.close();
+  }
+});
+
 test("no-evidence and unpublished-snapshot packs fail truthfully", async () => {
   const { testStore } = await seed();
   try {

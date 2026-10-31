@@ -370,7 +370,12 @@ function RepoShell() {
   );
   return (
     <div className="app-layout">
-      <RepositoryCommand repoId={repoId} open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <RepositoryCommand
+        repoId={repoId}
+        snapshotId={query.data?.snapshot?.id}
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+      />
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Logo compact />
@@ -479,7 +484,7 @@ function RepoShell() {
           <span>
             SHA <Sha value={query.data?.snapshot?.headSha} />
           </span>
-          <FocusIdentity repoId={repoId} entityId={focus} />
+          <FocusIdentity repoId={repoId} entityId={focus} snapshotId={query.data?.snapshot?.id} />
           <Badge tone={query.data?.snapshot?.status === 'ready' ? 'blue' : 'orange'}>
             {query.data?.snapshot?.status || 'No snapshot'}
           </Badge>
@@ -560,7 +565,16 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
             <progress max="100" value={job.data.progress} aria-label="Reported import progress" />
           )}
           {job.data.error && <p className="field-error">{job.data.error}</p>}
-          <Warnings warnings={job.data.warnings} />
+          {job.data.warnings.length > 0 && (
+            <details className="index-notes">
+              <summary>
+                <Shield size={15} />
+                <span>Review import warnings</span>
+                <Badge tone="orange">{job.data.warnings.length} NOTES</Badge>
+              </summary>
+              <Warnings warnings={job.data.warnings} />
+            </details>
+          )}
           {job.data.status === 'failed' && (
             <p>Review the import error, then use Refresh index to start a new job.</p>
           )}

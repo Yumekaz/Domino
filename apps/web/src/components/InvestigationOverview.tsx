@@ -60,8 +60,8 @@ export default function InvestigationOverview() {
   }, [mode]);
   const recordId = selection?.kind === 'node' ? selection.id : root;
   const record = useQuery({
-    queryKey: ['entity', repoId, recordId],
-    queryFn: ({ signal }) => api.entity(repoId, recordId!, signal),
+    queryKey: ['entity', repoId, repository.snapshot?.id, recordId],
+    queryFn: ({ signal }) => api.entity(repoId, recordId!, signal, repository.snapshot?.id),
     enabled: !!recordId,
   });
   const impact = useMutation({

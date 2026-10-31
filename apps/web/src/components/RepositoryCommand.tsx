@@ -3,14 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Search, X } from 'lucide-react';
 import { api } from '../api/client';
+import { snapshotSearchKey } from '../api/search-key';
 import { EntityIcon } from '../pages/investigations';
 import { Badge, Empty, ErrorState, Eyebrow, Loading } from './ui';
 export default function RepositoryCommand({
   repoId,
+  snapshotId,
   open,
   onClose,
 }: {
   repoId: string;
+  snapshotId?: string;
   open: boolean;
   onClose: () => void;
 }) {
@@ -31,7 +34,7 @@ export default function RepositoryCommand({
     return () => clearTimeout(timer);
   }, [text]);
   const query = useQuery({
-    queryKey: ['command-search', repoId, term],
+    queryKey: snapshotSearchKey('command-search', repoId, snapshotId, term),
     queryFn: ({ signal }) => api.search(repoId, term, undefined, signal),
     enabled: open && !!term,
   });

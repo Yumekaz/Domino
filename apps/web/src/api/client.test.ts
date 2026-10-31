@@ -33,6 +33,14 @@ describe('Public GitHub input boundary', () => {
 });
 describe('Evidence is never substituted', () => {
   it('uses live mode by default', () => expect(fixtureMode).toBe(false));
+  it('pins entity evidence requests to the selected snapshot', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'SOURCE_NOT_FOUND', message: 'Not found' }), { status: 404 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(api.entity('repo', 'entity', undefined, 'snapshot-id')).rejects.toMatchObject({ code: 'SOURCE_NOT_FOUND' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/repositories/repo/entities/entity?snapshotId=snapshot-id');
+  });
   it('reports transport failures without loading fixtures', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')));
     await expect(api.repository('real-repo')).rejects.toMatchObject({

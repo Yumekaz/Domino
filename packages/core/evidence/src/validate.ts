@@ -9,6 +9,7 @@ import type {
 } from "./types.ts";
 import type { HistoryStore } from "../../history/src/ports.ts";
 import { HistoryError } from "../../history/src/errors.ts";
+import { clip } from "../../history/src/paths.ts";
 import {
   containsAllAnchors,
   containsAllQuotes,
@@ -203,6 +204,55 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
     }
     const bodies = evidenceIds.map((id) => storedById.get(id)?.body ?? "");
     const unionText = bodies.join("\n\n");
+    // A substring can omit a condition at the end of a sentence. Require a
+    // complete source sentence; this may withhold valid paraphrases, and still
+    // does not establish that a sentence is representative in context.
+    const normalizeExcerpt = (value: string) => value.toLocaleLowerCase("en-US").replace(/\s+/g, " ").trim();
+    const claimExcerpt = normalizeExcerpt(claim.text).replace(/^["“]|["”]$/g, "").trim();
+    const sourceSentences = (body: string) => body.replace(/\r\n/g, "\n").split(/(?<=[.!?])\s+|\n{2,}/).slice(0, 80);
+    if (bodies.some((body, index) => {
+      const charStart = storedById.get(evidenceIds[index])?.metadata.charStart;
+      return !sourceSentences(body).some((sentence, sentenceIndex) =>
+        (sentenceIndex > 0 || charStart === 0) &&
+        /[.!?]["'”’`\])}]*\s*$/.test(sentence) &&
+        normalizeExcerpt(sentence).replace(/^["“]|["”]$/g, "").trim() === claimExcerpt,
+      );
+    })) {
+      outcome.reason = "Claim is not a complete sentence from every cited source";
+      continue;
+    }
+    // Token overlap alone can accept a claim that reverses a source by adding
+    // "not". This is a narrow safeguard, not semantic entailment checking.
+    if (hasExplicitNegation(claim.text) && !hasExplicitNegation(unionText)) {
+      outcome.reason = "Claim contains negation absent from its cited source text";
+      continue;
+    }
+    if (bodies.some((body) => tokenCoverage(claimTokens, body) < input.downgradeThreshold)) {
+      outcome.reason = "A cited source has insufficient conservative token support for this claim";
+      continue;
+    }
+    const claimIsNegative = hasExplicitNegation(claim.text);
+    let polarityConflict = false;
+    for (const body of bodies) {
+      let samePolarityCoverage = 0;
+      let oppositePolarityCoverage = 0;
+      for (const sentence of sourceSentences(body)) {
+        const score = tokenCoverage(claimTokens, sentence);
+        if (hasExplicitNegation(sentence) === claimIsNegative) {
+          samePolarityCoverage = Math.max(samePolarityCoverage, score);
+        } else {
+          oppositePolarityCoverage = Math.max(oppositePolarityCoverage, score);
+        }
+      }
+      if (oppositePolarityCoverage >= input.supportThreshold && oppositePolarityCoverage >= samePolarityCoverage) {
+        polarityConflict = true;
+        break;
+      }
+    }
+    if (polarityConflict) {
+      outcome.reason = "The closest matching source text has conflicting explicit negation";
+      continue;
+    }
     const relationshipFailure = checkRelationshipClaim(claim.text, pack);
     if (relationshipFailure !== null) {
       outcome.reason = relationshipFailure;
@@ -319,14 +369,20 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
     };
   }
   return {
-    status: "supported",
-    answer: raw.answer.trim().length > 0 ? raw.answer : acceptedClaims.map((claim) => claim.text).join(" "),
+    status: raw.status,
+    // Only claims pass source validation; the model's separate summary can
+    // contain additional, uncited statements even when every claim passes.
+    answer: acceptedClaims.map((claim) => claim.text).join(" "),
     claims: acceptedClaims,
     sources,
     unknowns: raw.unknowns,
     warnings,
     validation,
   };
+}
+
+function hasExplicitNegation(text: string): boolean {
+  return /\b(?:not|no|never|neither|nor|without|cannot)\b|\b\w+n['’]t\b|\bnon[-‐‑]\w+/i.test(text);
 }
 
 function buildSources(ids: string[], packById: Map<string, EvidencePack["chunks"][number]>): AskSource[] {
@@ -348,7 +404,9 @@ function buildSources(ids: string[], packById: Map<string, EvidencePack["chunks"
       url: chunk.sourceUrl,
       locator: chunk.locator,
       title,
-      excerpt: chunk.excerpt,
+      // Search snippets can omit the sentence supporting a claim. Return the
+      // bounded source text supplied to the model so it can be inspected.
+      excerpt: clip(chunk.body, 2_400),
       timestamp: chunk.sourceTimestamp,
       revision: chunk.revision,
       contentSha: chunk.contentSha,

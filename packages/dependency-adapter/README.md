@@ -12,6 +12,11 @@ package; A owns the root workspace and dependency policy, B supplies the exact-S
 - No repository config, script, install or build is executed. The analyzer receives an explicit
   argument array, a bounded timeout and a bounded output buffer. Only non-secret environment
   variables reach the subprocess.
+- If a repository's `tsconfig.json` references an unavailable configuration and TypeScript reports
+  `TS6053`, the worker retries within the same time budget without that configuration. The actual
+  fallback configuration is hashed and the snapshot's structural coverage is marked **partial**:
+  path aliases and other configuration-dependent imports may be missing. Other analyzer failures
+  are not silently retried or reported as success. Imported dependencies are never installed.
 
 ## Real C-01 spike
 

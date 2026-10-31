@@ -55,11 +55,26 @@ export default function GraphCanvas({
   const [zoom, setZoom] = useState(100);
   const [layoutNote, setLayoutNote] = useState('');
   const relayout = useRef<() => void>(() => {});
+  const layoutCache = useRef<{
+    graph: Graph;
+    layout: string;
+    rootId?: string;
+    positions: Partial<Record<'network' | 'records', Record<string, cytoscape.Position>>>;
+  } | null>(null);
   const dark = appearance === 'dark';
   useEffect(() => {
     const element = container.current;
     if (!element) return;
     const records = presentation === 'records';
+    if (
+      !layoutCache.current ||
+      layoutCache.current.graph !== graph ||
+      layoutCache.current.layout !== layout ||
+      layoutCache.current.rootId !== rootId
+    ) {
+      layoutCache.current = { graph, layout, rootId, positions: {} };
+    }
+    const cache = layoutCache.current;
     const background = dark ? '#0b1320' : '#f7f9fb';
     const ink = dark ? '#c5d5eb' : '#354e6c';
     const dense = graph.nodes.length > 120;
@@ -225,8 +240,22 @@ export default function GraphCanvas({
     core.current = cy;
     let disposed = false;
     let arrangeVersion = 0;
-    const arrange = async () => {
+    let arranged = false;
+    const arrange = async (force = false) => {
       const version = ++arrangeVersion;
+      const cached = !force ? cache.positions[presentation] : undefined;
+      if (cached) {
+        cy.nodes().positions((node) => cached[node.id()] ?? node.position());
+        cy.resize();
+        cy.fit(undefined, 30);
+        if (cy.zoom() > 1.35) {
+          cy.zoom(1.35);
+          cy.center();
+        }
+        arranged = true;
+        element.setAttribute('aria-busy', 'false');
+        return;
+      }
       let spatialAvailable = true;
       if (layout === 'fcose' && graph.nodes.length > 2) {
         element.setAttribute('aria-busy', 'true');
@@ -315,9 +344,10 @@ export default function GraphCanvas({
         cy.zoom(1.35);
         cy.center();
       }
+      arranged = true;
       element.setAttribute('aria-busy', 'false');
     };
-    relayout.current = arrange;
+    relayout.current = () => void arrange(true);
     arrange();
     cy.on('tap', 'node', (event) =>
       onSelectRef.current({ kind: 'node', id: event.target.data('entityId') }),
@@ -366,6 +396,13 @@ export default function GraphCanvas({
       observer.disconnect();
       cancelAnimationFrame(resizeFrame);
       cancelAnimationFrame(zoomFrame);
+      if (arranged) {
+        const positions: Record<string, cytoscape.Position> = {};
+        cy.nodes().forEach((node) => {
+          positions[node.id()] = { ...node.position() };
+        });
+        cache.positions[presentation] = positions;
+      }
       cy.destroy();
       core.current = null;
       relayout.current = () => {};

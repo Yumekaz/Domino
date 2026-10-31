@@ -25,6 +25,7 @@ import {
 import { returnedEntityKinds } from '../api/entity-kinds';
 import { impactPresentation, hasStructuralPath } from '../components/impact-presentation';
 import { api, fixtureMode } from '../api/client';
+import { snapshotSearchKey } from '../api/search-key';
 import { hasValidCitations, type Impact } from '../api/schemas';
 import {
   Badge,
@@ -79,10 +80,10 @@ export function EntityInspector({
     if (window.matchMedia('(max-width: 900px)').matches)
       panel.current?.scrollIntoView({ block: 'start' });
   }, [entityId]);
-  const { repoId, setFocus, path } = useRepo();
+  const { repoId, repository, setFocus, path } = useRepo();
   const query = useQuery({
-    queryKey: ['entity', repoId, entityId],
-    queryFn: ({ signal }) => api.entity(repoId, entityId, signal),
+    queryKey: ['entity', repoId, repository.snapshot?.id, entityId],
+    queryFn: ({ signal }) => api.entity(repoId, entityId, signal, repository.snapshot?.id),
     enabled: !!entityId,
   });
   return (
@@ -158,13 +159,13 @@ export function EntityInspector({
   );
 }
 export function HistoryPage() {
-  const { repoId, focus, setFocus } = useRepo();
+  const { repoId, repository, focus, setFocus } = useRepo();
   const [params] = useSearchParams();
   const [input, setInput] = useState(params.get('q') || '');
   const [q, setQ] = useState(input);
   const [kind, setKind] = useState('all');
   const query = useInfiniteQuery({
-    queryKey: ['search', repoId, q],
+    queryKey: snapshotSearchKey('search', repoId, repository.snapshot?.id, q),
     queryFn: ({ pageParam, signal }) => api.search(repoId, q, pageParam, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor || undefined,
@@ -360,7 +361,16 @@ export function AskPage() {
                   ]}
                 />
               )}
-              <Warnings warnings={ask.data.warnings} />
+              {ask.data.warnings.length > 0 && (
+                <details className="index-notes">
+                  <summary>
+                    <Shield size={15} />
+                    <span>Review answer coverage and validation notes</span>
+                    <Badge tone="orange">{ask.data.warnings.length} NOTES</Badge>
+                  </summary>
+                  <Warnings warnings={ask.data.warnings} />
+                </details>
+              )}
               {ask.data.status === 'unavailable' ? (
                 <div className="state-box" role="status">
                   <HelpCircle size={26} strokeWidth={1.4} />
@@ -641,8 +651,8 @@ export function ImpactResults({ result }: { result: Impact }) {
 export function ImpactPage() {
   const { repoId, repository, focus } = useRepo();
   const focused = useQuery({
-    queryKey: ['entity', repoId, focus],
-    queryFn: ({ signal }) => api.entity(repoId, focus, signal),
+    queryKey: ['entity', repoId, repository.snapshot?.id, focus],
+    queryFn: ({ signal }) => api.entity(repoId, focus, signal, repository.snapshot?.id),
     enabled: !!focus,
   });
   const [mode, setMode] = useState('files');
@@ -1028,11 +1038,21 @@ export function PRPage() {
           <RevisionBridge run={query.data} />
           <Warnings
             warnings={[
-              ...query.data.warnings,
-              ...(query.data.stale ||
-              (query.data.result && query.data.result.snapshotSha !== query.data.headSha)
+              ...query.data.warnings.map((warning) =>
+                warning.replace(
+                  'No impact result was substituted; refresh the index or request a new run.',
+                  'No impact result was substituted. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
+                ),
+              ),
+              ...((query.data.stale ||
+                (query.data.result && query.data.result.snapshotSha !== query.data.headSha)) &&
+              !query.data.warnings.some(
+                (warning) =>
+                  warning.includes('No impact result was substituted; refresh the index or request a new run.') ||
+                  warning.includes('Manual analysis requires a matching indexed revision;'),
+              )
                 ? [
-                    'The analysis is stale relative to the PR head. Refresh the underlying index or request a new run.',
+                    'The analysis is stale relative to the PR head. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
                   ]
                 : []),
             ]}

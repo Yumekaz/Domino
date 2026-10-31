@@ -77,8 +77,10 @@ export const api = {
     if (cursor) p.set('cursor', cursor);
     return request(`${repo(id)}/search?${p}`, s.searchSchema, { signal });
   },
-  entity: (id: string, entityId: string, signal?: AbortSignal) =>
-    request(`${repo(id)}/entities/${encodeURIComponent(entityId)}`, s.detailSchema, { signal }),
+  entity: (id: string, entityId: string, signal?: AbortSignal, snapshotId?: string) => {
+    const params = snapshotId ? `?${new URLSearchParams({ snapshotId })}` : '';
+    return request(`${repo(id)}/entities/${encodeURIComponent(entityId)}${params}`, s.detailSchema, { signal });
+  },
   graph: (id: string, query: s.GraphQuery, signal?: AbortSignal) => {
     const p = new URLSearchParams({
       snapshotId: query.snapshotId,
