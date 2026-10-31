@@ -16,8 +16,8 @@ export type ParsedProposedDiff = {
 };
 
 const DEFAULT_LIMITS: Required<DiffLimits> = {
-  maxBytes: 100_000,
-  maxFiles: 100,
+  maxBytes: 250_000,
+  maxFiles: 200,
   maxLines: 20_000,
 };
 

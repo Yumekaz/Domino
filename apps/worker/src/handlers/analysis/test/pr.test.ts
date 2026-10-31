@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { analyzePullRequest, getAnalysisRun, sanitizeActionsUrl } from "../pr.ts";
+import { toContractAnalysis, toContractAnalysisInput } from "../contracts.ts";
 import type { PullRequestAnalysisJob } from "../types.ts";
 import {
   clock,
@@ -88,7 +89,7 @@ describe("Pull request analysis service", () => {
       prJob({ snapshotSha: SHA_A, headSha: SHA_B, snapshotId: "snapshot-a" }),
       d,
     );
-    assert.equal(run.status, "stale");
+    assert.equal(run.status, "completed");
     assert.equal(run.stale, true);
     assert.equal(run.result, null);
     assert.ok(run.warnings.some((warning) => warning.includes("does not match the PR head")));
@@ -138,5 +139,29 @@ describe("Pull request analysis service", () => {
     await assert.rejects(getAnalysisRun(d.runs, "repo-1", "missing"), {
       code: "RUN_NOT_FOUND",
     });
+  });
+
+  it("maps completed and stale runs to A's analysis contract without coercion", async () => {
+    const d = deps();
+    const actionsUrl = "https://github.com/Yumekaz/Domino/actions/runs/123456";
+    const run = await analyzePullRequest(prJob({ actionsUrl }), d);
+    const contract = toContractAnalysis(run);
+    assert.equal(contract.status, "completed");
+    assert.equal(contract.stale, false);
+    assert.equal(contract.actionsUrl, actionsUrl);
+    assert.equal(contract.result?.affected[0]?.file, "src/session.ts");
+    const input = toContractAnalysisInput(run);
+    assert.equal(input.idempotencyKey, run.idempotencyKey);
+    assert.equal(input.prNumber, 12);
+
+    const stale = await analyzePullRequest(
+      prJob({ snapshotSha: SHA_A, headSha: SHA_B, snapshotId: "snapshot-a" }),
+      d,
+    );
+    const staleContract = toContractAnalysis(stale);
+    assert.equal(staleContract.status, "completed");
+    assert.equal(staleContract.stale, true);
+    assert.equal(staleContract.result, null);
+    assert.ok(staleContract.warnings.some((warning: string) => warning.includes("does not match")));
   });
 });

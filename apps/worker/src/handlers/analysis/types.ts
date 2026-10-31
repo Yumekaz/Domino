@@ -8,7 +8,13 @@ import type {
 } from "../../../../../packages/core/impact/src/types.ts";
 
 export type AnalysisRunKind = "impact" | "pull_request";
-export type AnalysisRunStatus = "completed" | "failed" | "stale" | "cancelled";
+export type AnalysisRunStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "partial"
+  | "failed"
+  | "cancelled";
 export type PullRequestEvent = "opened" | "reopened" | "synchronize";
 
 export type AnalysisRunRecord = {
@@ -107,7 +113,8 @@ export type AnalysisErrorCode =
   | "SNAPSHOT_MISMATCH"
   | "STRUCTURAL_SNAPSHOT_MISSING"
   | "RUN_NOT_FOUND"
-  | "ANALYZER_METADATA_MISMATCH";
+  | "ANALYZER_METADATA_MISMATCH"
+  | "CONTRACT_MISMATCH";
 
 export class AnalysisError extends Error {
   readonly code: AnalysisErrorCode;

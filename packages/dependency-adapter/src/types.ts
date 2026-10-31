@@ -53,7 +53,7 @@ export type StructuralImport = {
   dependencyTypes: string[];
   dynamic: boolean;
   circular: boolean;
-  extractor: "dependency-cruiser";
+  extractor: string;
   analyzerVersion: string;
   configHash: string;
   snapshotSha: string;

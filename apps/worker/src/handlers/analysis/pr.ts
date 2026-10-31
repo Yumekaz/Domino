@@ -117,7 +117,7 @@ export async function analyzePullRequest(
       snapshotId: job.snapshotId,
       snapshotSha: job.snapshotSha,
       kind: "pull_request",
-      status: "stale",
+      status: "completed",
       createdAt,
       stale: true,
       result: null,

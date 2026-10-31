@@ -210,4 +210,6 @@ export class FakeCoChange implements CoChangeReader {
 
 let runCounter = 0;
 export const clock = { now: () => new Date("2026-10-31T10:00:00.000Z") };
-export const ids = { runId: () => `run-${++runCounter}` };
+export const ids = {
+  runId: () => `00000000-0000-4000-8000-${String(++runCounter).padStart(12, "0")}`,
+};

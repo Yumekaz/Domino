@@ -27,6 +27,10 @@ config hash, changed files, direct/transitive possible-impact paths, evidence sp
 limitations. Dynamic imports, unresolved/external modules and missing co-change data remain
 explicit. No PR comment, check conclusion, or database analysis run is created by this workflow.
 
+**Bootstrap:** before this package is merged into the base branch, the workflow detects that the
+trusted analyzer is absent from the base checkout, writes a short “not yet bootstrapped” summary,
+and skips analysis. It does not display a computed impact result or a fabricated success.
+
 ## Setup
 
 1. Merge this workflow and `packages/dependency-adapter` on the default/base branch.

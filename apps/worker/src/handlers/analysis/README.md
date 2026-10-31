@@ -40,6 +40,17 @@ result for A to map, not a published wire schema.
   trusted pinned analyzer and controlled config. It must not execute repository scripts or installs.
 - `checkoutDir`/`checkoutSha` come from B's exact-SHA checkout. If `checkoutSha` disagrees with the
   snapshot, the handler rejects the job.
+- `IdGenerator.runId()` must return a UUID-compatible string; A's shared `analysisSchema` validates
+  the run identifier as a UUID.
+
+## A contract mapping
+
+- `toContractAnalysis(run)` maps a completed or stale PR run to A's `analysisSchema`.
+- `toContractAnalysisInput(run)` maps the run metadata to A's `analysisInputSchema` for persistence.
+- A stale snapshot is represented as `status: "completed"`, `stale: true`, `result: null` because
+  A's accepted `runStatusSchema` has no separate `stale` status. The warning remains explicit.
+- A owns persistence; these mappers only enforce the accepted envelope. `run.id` and revisions must
+  satisfy A's UUID/SHA schemas.
 
 ## Behaviour
 

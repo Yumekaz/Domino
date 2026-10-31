@@ -24,9 +24,18 @@ persistence, API routes or live GitHub Actions execution are complete; those rem
    - Stores only normalized analyzer observations; repeat runs are idempotent. B's co-change failure
      removes only the association signal, not structural results.
    - PR runs are keyed by repository/snapshot/base/head/event. A snapshot that does not match the PR
-     head is persisted as **stale** with no result; it never analyses the wrong revision. Invalid
-     Actions URLs are withheld.
-4. **Read-only workflow** (`.github/workflows/pr-impact.yml`, `integrations/github-action`)
+     head is persisted as **completed with `stale: true` and no result**; it never analyses the wrong
+     revision. Invalid Actions URLs are withheld.
+   - `toContractAnalysis`/`toContractAnalysisInput` map domain runs to A's accepted
+     `analysisSchema`/`analysisInputSchema`.
+4. **On-demand API impact service** (`packages/core/impact/src/service.ts`)
+   - Implements A's `ImpactServicePort` over a narrow snapshot/reverse-dependency source port and
+     B's co-change port. A can wire its database functions without C owning SQL.
+   - Bounded per-file reverse lookups (500 rows), at most 2,000 files and 200,000 edges. Source
+     truncation and missing analyzer provenance remain visible warnings.
+   - `toContractImpact` maps structural and co-change signals to A's `impactSchema` and rejects
+     non-conforming proof instead of coercing it.
+5. **Read-only workflow** (`.github/workflows/pr-impact.yml`, `integrations/github-action`)
    - `pull_request` opened/reopened/synchronize only; minimal `contents: read` and
      `pull-requests: read`; actions pinned by commit SHA.
    - Analyzer code is checked out from the exact **base** revision; the PR head is a separate
@@ -61,7 +70,7 @@ also produced the same paths from a fresh analyzer invocation.
 | Reverse depth | 3 (1–3 accepted) |
 | Affected files | 200 |
 | Structural edges | 200,000 |
-| Proposed diff | 100 KB, 20,000 lines, 100 files |
+| Proposed diff | 250 KB, 20,000 lines, 200 files |
 | Analyzer timeout | 120 seconds |
 | Analyzer output | 64 MB |
 | PR changed files | 300 |
@@ -75,10 +84,11 @@ also produced the same paths from a fresh analyzer invocation.
 - Feature/test/decision mappings are omitted unless stored mappings exist.
 - Historical co-change is unavailable to the read-only workflow because it needs the indexed
   dataset; the API path can return it separately through B's port.
-- Shared Zod/API contracts are not present on the integration branch. The handler returns a domain
-  record for A to map; no wire schema is claimed.
-- Database persistence, API routes/job registration, and genuine remote Actions execution are A/B
-  gates. C-02/C-05/C-07 are implemented against ports and tested in memory; C-09 is not performed.
+- Shared Zod/API contracts are now available on integration; C maps its domain result to A's
+  `impactSchema`/`analysisSchema` in contract tests. A still owns route/DB wiring.
+- Database persistence, API routes/job registration, and genuine remote Actions execution remain
+  A/B gates. C-02/C-05/C-07 are implemented against ports and tested in memory; C-09 is not
+  performed.
 
 ## Verification
 

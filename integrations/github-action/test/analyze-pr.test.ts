@@ -272,4 +272,12 @@ describe("Workflow security properties", () => {
     assert.doesNotMatch(workflow, /run:[\s\S]*npm (?:install|run|test)/);
     assert.match(workflow, /timeout-minutes: 15/);
   });
+
+  it("bootstraps transparently when the base lacks the trusted analyzer", () => {
+    assert.match(workflow, /id: analyzer/);
+    assert.match(workflow, /present=false/);
+    assert.match(workflow, /not yet bootstrapped/);
+    assert.match(workflow, /if: steps\.analyzer\.outputs\.present == 'true'/);
+    assert.match(workflow, /No impact result was computed/);
+  });
 });

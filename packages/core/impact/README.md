@@ -18,6 +18,40 @@ depth cap, stops cycles at a repeated file, keeps one deterministic shortest pat
 and returns each path with importer evidence in dependent → changed-file order. It never reads
 source text, runs an analyzer, or invents a feature/test mapping.
 
+## API service for A
+
+`createImpactService(source)` implements A's accepted `ImpactServicePort`. A supplies a narrow
+source implementation over its database:
+
+```ts
+const impact = createImpactService({
+  async getPublishedSnapshot(repoId, snapshotId) {
+    const snapshot = await publishedSnapshot(pool, repoId, snapshotId);
+    return { id: String(snapshot.id), headSha: String(snapshot.head_sha) };
+  },
+  async findReverseDependencies({ repoId, snapshotId, importedFile, limit }) {
+    const result = await findReverseDependencies(pool, repoId, snapshotId, importedFile, limit);
+    return {
+      rows: result.rows.map((row) => ({
+        importingFile: row.importing_file,
+        importedFile: row.imported_file,
+        dependencyKind: row.dependency_kind,
+        sourceLine: row.source_line,
+        evidence: row.evidence,
+      })),
+      truncated: result.truncated,
+    };
+  },
+  // optional when B's co-change consumer is available
+  // getCoChange: ({ repoId, snapshotId, targetFile }) => coChange.getCoChange(...),
+});
+```
+
+The source must enforce snapshot scoping and published-snapshot visibility; the service is not a
+database gateway. Stored evidence should include `specifier`, `dynamic`, `circular`, `extractor`,
+`analyzerVersion` and `configHash`; missing provenance is reported as an incomplete-evidence warning.
+`toContractImpact` maps the domain result to A's `impactSchema` and rejects non-conforming proof.
+
 Dynamic imports remain in the result but are labelled and warned about; unresolved/external/gaps
 never become edges. `proposedDiff` is parsed as data with byte/line/file caps; renamed, deleted,
 added and binary paths stay explicit. Rename mappings resolve changed paths to the current path.
