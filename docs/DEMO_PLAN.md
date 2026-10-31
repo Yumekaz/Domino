@@ -1,20 +1,20 @@
 # Domino demo plan
 
-Status: **integration draft, 31 October 2026.** This plan is for the existing frontend on
-`codex/integration-d`, based on `codex/backend-integration` (`f628461`, tree equivalent to frontend
-freeze `0716669e7140f5a722ad5208e6bde2a63ac3e903`). Backend services and shared contracts are not
-present on the integration branch yet, so every live step below is a required gate, not a completed
-result. Fixture-mode UI exercises are labelled synthetic and are never evidence of ingestion,
-analysis, authorship or Actions output.
+Status: **integration complete, live acceptance pending.** This plan covers the integrated
+A/B/C backend and shared-contract frontend on `codex/backend-integration`. The code, tests, local
+analyzer dry run and fixture browser journeys pass; a fresh live import, live model answer, live
+PR Actions run, deployment and performance/browser acceptance remain required gates. Fixture-mode UI
+exercises are labelled synthetic and are never evidence of ingestion, analysis, authorship or
+Actions output.
 
 - Repository: https://github.com/Yumekaz/Domino
 - Role / owner: D (frontend integration and final acceptance)
 - Frontend freeze: `0716669e7140f5a722ad5208e6bde2a63ac3e903`; verified documentation at
   `docs/frontend/final/VISUAL_FREEZE.md`.
-- Shared contracts: `handoffs/CONTRACT_GATE.md` remains OPEN; `packages/contracts` is not on the
-  integration branch. `codex/backend-b` contains unmerged history/retrieval work, but no accepted
-  contract package is available to the frontend.
-- Services: no `apps/api`, worker, PostgreSQL or queue composition on the integration branch.
+- Shared contracts: integrated in `packages/contracts`; the web client imports them and fixture data
+  is contract-valid.
+- Services: `apps/api`, worker, PostgreSQL migration/queue composition, B history and C structural
+  analysis/PR action are integrated. Live deployment/database credentials remain a gate.
 - Mobile: deferred by the user; this plan covers desktop acceptance only.
 
 ## Rules for this demo
@@ -49,10 +49,20 @@ errors, obsolete-read cancellation, the request timeout map, citation membership
 fixture boundaries and returned graph integrity. The build prints the disclosed lazy Three.js chunk
 warning (~568 kB minified); do not raise the threshold to hide it.
 
-Start the real stack only after A publishes exact startup instructions:
+Start the real stack from the repository root with an isolated database:
+
+```powershell
+npm ci --ignore-scripts
+$env:DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:5432/DATABASE'
+npm run db:migrate
+npm run dev:api
+# second terminal, same DATABASE_URL
+npm run dev:worker
+```
 
 ```powershell
 # Live UI (proxies /api to 127.0.0.1:3000 by default)
+cd apps/web
 npm run dev
 
 # Synthetic UI exercise only, never for acceptance
@@ -61,6 +71,9 @@ npm run dev:fixtures -- --port 5174
 # Production preview after a build
 npm run preview
 ```
+
+For the container API, set `DOMINO_API_TOKEN` in the shell running Vite; the dev proxy adds the
+Bearer header server-side. Do not place the token in `VITE_` values.
 
 Verify the live API through the same path the browser uses:
 
@@ -87,8 +100,10 @@ Fixture data from `development-fixture` is never acceptable demo evidence.
 
 ## Runbook: seven capabilities
 
-Current live status: **BLOCKED** until the named backend owner provides the service and A publishes
-shared contracts.
+Current live status: **NOT PERFORMED**. The code paths and fixture journeys pass; the live run
+requires a migrated database, a worker-run public import, a model credential for M3 and a real PR
+event for the Actions summary. The manual PR run analyzes the indexed snapshot and is marked stale
+when the snapshot SHA differs from the PR head; the automatic workflow analyzes the fresh head.
 
 ### M1 — History collection (owner A/B)
 
@@ -194,11 +209,12 @@ state. Never substitute a nearby record.
 
 | Area | State | Owner / next action |
 | --- | --- | --- |
-| Shared runtime contracts | BLOCKED; gate open | A publishes `packages/contracts`, route table, enums, bounds and error envelope |
-| Live import, search, Q&A, impact, risk, PR run | BLOCKED; no API/worker/DB on integration | A/B/C provide services and demo data |
-| Integration branch content | Only frontend; `codex/backend-b` unmerged | A coordinates backend integration after contract acceptance |
-| Graph-scale acceptance | NOT PERFORMED; no real graph | A/B provide representative bounded neighborhoods |
-| Deployment/CORS/origin | BLOCKED | A confirms origin/proxy/CORS and deployment |
+| Shared runtime contracts | Integrated | Shared schemas consumed by the web client; live round trips still required |
+| Live import, search, Q&A, impact, risk, PR run | NOT PERFORMED locally | Run the integrated worker/API against an isolated database and public repo |
+| Live model answer / outage | NOT PERFORMED | Configure a server-side provider and rehearse supported/not-found/unavailable |
+| Live PR Actions summary | NOT PERFORMED | Merge the read-only workflow to the base branch, then open/synchronize a real PR |
+| Graph-scale acceptance | NOT PERFORMED; no real graph | Use a representative bounded live neighborhood |
+| Deployment/CORS/origin | NOT PERFORMED | Configure HTTPS, same-origin routing and reverse-proxy auth |
 | Mobile | Deferred | User priority decision |
 
 ## Pre-demo go/no-go
