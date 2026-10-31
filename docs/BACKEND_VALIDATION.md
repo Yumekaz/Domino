@@ -2,6 +2,21 @@
 
 31 October 2026. This record distinguishes role A's branch from the separate B draft. The A+B integration checks used a temporary local checkout of B commit `62b1d7dfe757e760396ea85fcfc893eb9994631f`, with A-owned files copied alongside it. B's PR was not merged to perform the tests. All imported content below came from a real public repository; these results are not the frontend development fixture.
 
+## Integration update
+
+Role B (`62b1d7d`) was merged into `codex/backend-integration` at merge commit `0855f02`. On the merged tree, without re-running live ingestion:
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | PASS: backend contracts/API/database and all B history, retrieval, evidence, risk and worker-handler sources |
+| `npm test` — Vitest | PASS: 16 tests, 3 skipped (real PostgreSQL/pg-boss suite requires its isolated database environment) |
+| `npm test` — history suites | PASS: 64 tests, 3 skipped (optional live Git/GitHub checks) |
+| Clean `npm ci --ignore-scripts` | PASS in an isolated temporary workspace with the updated root lockfile |
+| Runtime loader paths | PASS: the API/worker dynamically resolve all eight integrated B modules, including `createHistoryImportHandler` |
+| Frontend checks | PASS: `npm run typecheck` and 38 tests |
+
+The live public import, a model-generated answer, C's impact/PR services, the frontend binding, Docker Compose and deployment were **not** re-run for this merge. The live evidence below remains the earlier role A+B validation.
+
 ## Verified locally
 
 | Check                             | Result                                         | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                             |

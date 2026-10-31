@@ -9,14 +9,23 @@
     "apps/api",
     "apps/worker",
     "packages/contracts",
-    "packages/database"
+    "packages/database",
+    "packages/core/evidence",
+    "packages/core/history",
+    "packages/core/knowledge-risk",
+    "packages/git-adapter",
+    "packages/github-adapter",
+    "packages/llm-adapter",
+    "packages/retrieval"
   ],
   "scripts": {
     "dev:api": "tsx apps/api/src/main.ts",
     "dev:worker": "tsx apps/worker/src/main.ts",
     "db:migrate": "tsx packages/database/src/migrate.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.backend.json",
-    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.backend.json && tsc --noEmit -p tsconfig.history.integration.json",
+    "typecheck:history": "tsc --noEmit -p tsconfig.history.integration.json",
+    "test": "vitest run && npm run test:history",
+    "test:history": "node --test packages/core/history/test/*.test.ts packages/core/evidence/test/*.test.ts packages/core/knowledge-risk/test/*.test.ts packages/git-adapter/test/*.test.ts packages/github-adapter/test/*.test.ts packages/llm-adapter/test/*.test.ts packages/retrieval/test/*.test.ts apps/worker/src/handlers/history/test/*.test.ts",
     "build": "npm run typecheck"
   },
   "dependencies": {
