@@ -63,6 +63,11 @@ export async function enqueueImport(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // github_id and case-insensitive owner/name are both unique. Serialize the
+    // identity upsert so concurrent imports cannot race the non-arbiter index.
+    await client.query("SELECT pg_advisory_xact_lock($1::bigint)", [
+      String(github.githubId),
+    ]);
     const repo = await client.query<{ id: string }>(
       `INSERT INTO repositories(id,github_id,owner,name,default_branch,visibility,html_url,created_at)
        VALUES ($1,$2,$3,$4,$5,'public',$6,now())

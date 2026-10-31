@@ -39,18 +39,23 @@ describe.skipIf(!enabled)("real PostgreSQL and pg-boss", () => {
   it("atomically inserts a queue message and returns the same active job for concurrent imports", async () => {
     const suffix = randomBytes(5).toString("hex");
     const data = {
-      githubId: Math.floor(Date.now() * 1000 + Math.random() * 1000),
+      githubId: randomBytes(6).readUIntBE(0, 6),
       owner: `test-${suffix}`,
       name: "public",
       url: `https://github.com/test-${suffix}/public`,
       branch: "main",
       headSha: "a".repeat(40),
     };
-    const [first, second] = await Promise.all([
-      enqueueImport(pool, boss, data),
-      enqueueImport(pool, boss, data),
-    ]);
-    expect(second).toEqual(first);
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => enqueueImport(pool, boss, data)),
+    );
+    const first = results[0]!;
+    expect(
+      results.every(
+        (result) =>
+          result.repoId === first.repoId && result.jobId === first.jobId,
+      ),
+    ).toBe(true);
     const jobs = await pool.query(
       "SELECT id,status FROM import_jobs WHERE repo_id=$1",
       [first.repoId],
@@ -61,7 +66,7 @@ describe.skipIf(!enabled)("real PostgreSQL and pg-boss", () => {
   });
   it("rolls back the repository and app job when the queue write fails", async () => {
     const suffix = randomBytes(5).toString("hex");
-    const githubId = Math.floor(Date.now() * 1000 + Math.random() * 1000);
+    const githubId = randomBytes(6).readUIntBE(0, 6);
     const data = {
       githubId,
       owner: `test-${suffix}`,

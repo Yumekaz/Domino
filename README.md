@@ -2,7 +2,7 @@
 
 A cinematic product launch and an evidence-led engineering workspace for INNOVISTA PS06.
 
-The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The role A backend branch adds shared contracts, Fastify, PostgreSQL migrations and pg-boss integration; the historical implementation remains in role B's separate draft PR until reviewed and integrated.
+The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The backend provides shared contracts, Fastify, PostgreSQL migrations, pg-boss integration and role B's history, retrieval, evidence Q&A and observed-contributor pipeline. Role C's structural impact/PR automation and D's live UI binding remain outstanding.
 
 ## Run
 
@@ -16,7 +16,7 @@ npm run dev
 
 Open the printed local URL. `/` is the launch; `/app` connects repositories. Vite proxies `/api` to `http://127.0.0.1:3000`. Configure `VITE_API_BASE_URL` in `.env.local` to use another API origin; do not include `/api/v1` in that value. Only public configuration belongs in `VITE_` variables.
 
-**Live mode is the default.** Without the API, import and analysis show honest connection errors. The web client still uses provisional decoders; D must bind it to the accepted shared contracts. A separately tested A+B checkout has ingested a public repository, but a live model answer, C's impact/PR service, and complete web-to-backend acceptance are not yet verified.
+**Live mode is the default.** Without the API, import and analysis show honest connection errors. The web client still uses provisional decoders; D must bind it to the accepted shared contracts. The integrated A+B backend has ingested a public repository in validation, but a live model answer, C's impact/PR service, and complete web-to-backend acceptance are not yet verified.
 
 ## Explicit development fixture
 
@@ -53,9 +53,9 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 
 For deployment, serve `apps/web/dist` with SPA fallback to `index.html`, route `/api/v1` to the backend, and use HTTPS. Do not deploy the Vite development server. Source publication does not deploy or host the application.
 
-## Backend development (role A)
+## Backend development
 
-Use Node 22.12+ and PostgreSQL 13+. The backend and frontend retain separate lockfiles. From the repository root:
+Use Node 22.12+ and PostgreSQL 13+. The Node test runner used by the history suites requires Node 24+ (CI and Docker use 24.11.1). The backend and frontend retain separate lockfiles. From the repository root:
 
 ```powershell
 npm ci --ignore-scripts
@@ -64,10 +64,10 @@ npm run db:migrate
 npm run dev:api
 ```
 
-In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker requires B's reviewed history packages to be present; before B is integrated it exits with a clear error. The API starts without them but history-backed routes remain unavailable. C's impact/PR services are not yet connected, so imported snapshots explicitly remain partial until structural analysis is implemented. Use only an isolated development database. PostgreSQL migrations are checksum-verified and forward-only.
+In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker registers the integrated history pipeline (GitHub/Git collection, retrieval indexing, evidence Q&A and observed contributors). C's impact/PR services are not yet connected, so imported snapshots remain explicitly partial until structural analysis is implemented. Use only an isolated development database. PostgreSQL migrations are checksum-verified and forward-only.
 
 For installations with a corporate/system TLS root, Node can use the operating system certificate store with `NODE_USE_SYSTEM_CA=1`; do not disable certificate verification. Configure GitHub/model tokens only in the server environment. `DOMINO_GITHUB_TOKEN` is optional for public imports but avoids the much lower anonymous GitHub rate limit.
 
 `docker-compose.yml` and `Dockerfile` provide a local PostgreSQL/API/worker layout. Copy `.env.example` to `.env` and `.env.postgres.example` to `.env.postgres`; set the same URL-safe database password in the PostgreSQL file and `DATABASE_URL`, and set a long random `DOMINO_API_TOKEN`. Then run `docker compose up --build`. The container API requires `Authorization: Bearer <token>`; D must configure a secure development proxy or other agreed browser authentication before using the existing web client against this mode. Compose has not been tested on this machine because Docker is unavailable.
 
-Backend checks: `npm run typecheck` and `npm test`. Real PostgreSQL/queue tests run only with `DOMINO_ALLOW_POSTGRES_TESTS=1` and `DOMINO_TEST_DATABASE_URL` pointing to a database named `domino_a_test`; see `.github/workflows/backend-ci.yml`. The frontend checks remain under `apps/web` and are unchanged.
+Backend checks: `npm run typecheck` (contracts, API, database and history packages) and `npm test` (Vitest API/migration tests plus the history, retrieval, evidence and knowledge-risk suites). Real PostgreSQL/queue tests run only with `DOMINO_ALLOW_POSTGRES_TESTS=1` and `DOMINO_TEST_DATABASE_URL` pointing to a database named `domino_a_test`; live Git/GitHub tests require `DOMINO_LIVE_GIT=1` or `DOMINO_LIVE_GITHUB=1`. See `.github/workflows/backend-ci.yml`. The frontend checks remain under `apps/web` and are unchanged. Server-side model configuration is documented in [the history handler notes](apps/worker/src/handlers/history/README.md); a live model-generated answer has not been validated.

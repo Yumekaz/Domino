@@ -31,13 +31,6 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
-      - name: Run B history tests when the reviewed packages are present
-        shell: bash
-        run: |
-          if [ -d packages/core/history/test ]; then
-            npx tsc -p tsconfig.history.integration.json
-            node --test packages/core/history/test/*.test.ts packages/core/evidence/test/*.test.ts packages/core/knowledge-risk/test/*.test.ts packages/git-adapter/test/*.test.ts packages/github-adapter/test/*.test.ts packages/llm-adapter/test/*.test.ts packages/retrieval/test/*.test.ts apps/worker/src/handlers/history/test/*.test.ts
-          fi
       - name: Preserve frontend build and tests
         working-directory: apps/web
         run: |
