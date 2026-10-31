@@ -5,3 +5,8 @@ apps/web/.env.*.local
 apps/web/coverage/
 *.log
 *.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.postgres.example
+/.domino-a-b-review/
