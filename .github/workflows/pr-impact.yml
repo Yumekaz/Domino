@@ -74,6 +74,10 @@ jobs:
           node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config /tmp/dc-config.json --output-type json --progress none > /tmp/dc-cwd.json 2>/tmp/dc-cwd.err || true
           node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-cwd.json','utf8')); console.log('cwd modules', j.modules?.length, 'baseDir', j.summary?.optionsUsed?.baseDir);"
           head -10 /tmp/dc-cwd.err
+          node -e "const fs=require('fs'); fs.writeFileSync('/tmp/dc-no-tsconfig.json', JSON.stringify({forbidden:[],options:{parser:'tsc',tsPreCompilationDeps:true,doNotFollow:{path:'node_modules'},exclude:{path:'(^|/)(node_modules|dist|build|out|coverage|vendor|__generated__|generated|\\\\.git|\\\\.next|\\\\.cache)(/|$)'}}}))"
+          node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config /tmp/dc-no-tsconfig.json --output-type json --progress none > /tmp/dc-no-tsconfig-out.json 2>/tmp/dc-no-tsconfig.err || true
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-no-tsconfig-out.json','utf8')); console.log('no-tsconfig modules', j.modules?.length);"
+          head -10 /tmp/dc-no-tsconfig.err
       - name: Compute and publish the impact summary
         if: steps.analyzer.outputs.present == 'true'
         env:
