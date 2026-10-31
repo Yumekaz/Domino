@@ -36,6 +36,8 @@ result for A to map, not a published wire schema.
 - `StructuralImportStore.getImports` returns stored import observations for the exact snapshot.
 - `AnalysisRunStore.getByKey` enforces idempotency; `get(repoId, runId)` must be repository-scoped.
 - `CoChangeReader` is B's observed co-change result, including coverage sample size/window.
+  `createHistoryCoChangeReader(port)` adapts B's actual `CoChangeConsumerPort`; B computes the
+  association and C never derives it from imports.
 - `StructuralAnalyzerPort` should wrap `analyzeCheckout` from `packages/dependency-adapter` with the
   trusted pinned analyzer and controlled config. It must not execute repository scripts or installs.
 - `checkoutDir`/`checkoutSha` come from B's exact-SHA checkout. If `checkoutSha` disagrees with the

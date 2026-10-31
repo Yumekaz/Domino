@@ -44,6 +44,22 @@ persistence, API routes or live GitHub Actions execution are complete; those rem
      builds, hooks, scripts and configuration are never executed.
    - Changed-file metadata comes from GitHub's read-only API with a 300-file bound; output is a
      real `GITHUB_STEP_SUMMARY`. No PR comment or database run is implied.
+   - If the base revision does not yet contain the analyzer package, the workflow writes a
+     “not yet bootstrapped” summary and skips analysis instead of failing or fabricating a result.
+
+## Integration with A and B
+
+- **A (contracts/database/API):** add `packages/dependency-adapter` and `packages/core/impact` to the
+  root workspaces/typecheck/test scripts. Implement `ImpactServiceSource` using A's
+  `publishedSnapshot` and `findReverseDependencies` functions; pass
+  `createImpactService(source)` as `deps.impact` in the API composition. Use
+  `toContractAnalysis`/`toContractAnalysisInput` when persisting PR runs, and `toContractImpact`
+  for stored impact output. A still owns route/DB/queue wiring.
+- **B (history/co-change):** B's `CoChangeConsumerPort` is adapted with
+  `createHistoryCoChangeReader(port)`; B computes the observed association. B's exact-SHA checkout
+  supplies `checkoutDir`/`checkoutSha` to the worker handler.
+- **D:** consumes A's `impactSchema`/`analysisSchema` through the existing frontend; no frontend
+  changes are in this branch.
 
 ## Measured evidence (C-01)
 
