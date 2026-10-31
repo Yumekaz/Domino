@@ -1,0 +1,55 @@
+name: Domino PR impact check
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: domino-pr-impact-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  impact:
+    name: Compute structural impact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted analyzer at the base revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: analyzer
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Checkout PR head as read-only target data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: target
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: analyzer/packages/dependency-adapter/package-lock.json
+
+      - name: Install the pinned analyzer only
+        working-directory: analyzer/packages/dependency-adapter
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Compute and publish the impact summary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DOMINO_ANALYZER_ROOT: ${{ github.workspace }}/analyzer
+          DOMINO_TARGET_ROOT: ${{ github.workspace }}/target
+          DOMINO_TARGET_PATH: ${{ vars.DOMINO_TARGET_PATH || '.' }}
+          DOMINO_TSCONFIG: ${{ vars.DOMINO_TSCONFIG || '' }}
+        run: node analyzer/integrations/github-action/analyze-pr.mjs

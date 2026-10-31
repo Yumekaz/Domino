@@ -1,0 +1,31 @@
+{
+  "repositoryId": "Yumekaz/Domino",
+  "snapshotSha": "f62846192575672c4f1b7b2fe424e853218c9a15",
+  "analyzer": "dependency-cruiser",
+  "version": "18.7.0",
+  "configHash": "4a6c74a817813e36a072440d9e15056ca3d0af814951688a205e0c6d9196344d",
+  "analyzedAt": "2026-10-31T09:07:00.000Z",
+  "sourceRoot": "apps/web/src",
+  "command": "node node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config <temp>/run-config.json --output-type json",
+  "config": {
+    "forbidden": [],
+    "options": {
+      "parser": "tsc",
+      "tsPreCompilationDeps": true,
+      "doNotFollow": {
+        "path": "node_modules"
+      },
+      "exclude": {
+        "path": "(^|/)(node_modules|dist|build|out|coverage|vendor|__generated__|generated|\\.git|\\.next|\\.cache)(/|$)"
+      },
+      "tsConfig": {
+        "fileName": "apps/web/tsconfig.json"
+      }
+    }
+  },
+  "notes": "Verbatim modules/dependencies from a real dependency-cruiser 18.7.0 + TypeScript 6.0.3 run at f628461. Machine-specific optionsUsed/violations removed. The run resolved tsConfig from an absolute path; this metadata records the canonical repo-relative label used for the config hash.",
+  "counts": {
+    "modules": 53,
+    "dependencies": 123
+  }
+}
