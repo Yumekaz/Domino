@@ -5,6 +5,7 @@ const result: Impact = {
   changedFiles: ['a.ts'],
   snapshotSha: '0'.repeat(40),
   warnings: [],
+  truncated: false,
   affected: [
     {
       file: 'c.ts',

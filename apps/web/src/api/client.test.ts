@@ -78,7 +78,10 @@ describe('Evidence is never substituted', () => {
           claims: [],
           sources: [],
           unknowns: [],
+          warnings: [],
           snapshotSha: 'a'.repeat(40),
+          errorCode: null,
+          searchAvailable: true,
         }),
         { status: 200 },
       ),
@@ -93,34 +96,53 @@ describe('Evidence is never substituted', () => {
     });
   });
   it('requires claim citations to exist in the returned pack', () => {
+    const missingId = '11111111-1111-4111-8111-111111111111';
     const response = answerSchema.parse({
       answer: 'A reason',
       status: 'supported',
-      claims: [{ text: 'Claim', support: 'documented', evidenceIds: ['missing'] }],
-      sources: [],
+      claims: [{ text: 'Claim', support: 'documented', evidenceIds: [missingId] }],
+      sources: [{ id: missingId, kind: 'comment', locator: 'Source' }],
       unknowns: [],
+      warnings: [],
       snapshotSha: 'a'.repeat(40),
+      errorCode: null,
+      searchAvailable: true,
     });
-    expect(hasValidCitations(response)).toBe(false);
-    response.sources = [{ id: 'missing', kind: 'comment', locator: 'Source' }];
     expect(hasValidCitations(response)).toBe(true);
-    response.claims[0].evidenceIds = [];
-    expect(hasValidCitations(response)).toBe(false);
+    expect(hasValidCitations({ ...response, sources: [] })).toBe(false);
+    expect(answerSchema.safeParse({ ...response, sources: [] }).success).toBe(false);
   });
   it('rejects dangling graph relationships and duplicate IDs', () => {
-    const node = { id: 'a', title: 'file', kind: 'File' };
+    const node = {
+      id: '11111111-1111-4111-8111-111111111111',
+      title: 'file',
+      kind: 'File',
+    };
     const edge = {
-      id: 'e',
-      source: 'a',
-      target: 'missing',
+      id: '22222222-2222-4222-8222-222222222222',
+      source: '11111111-1111-4111-8111-111111111111',
+      target: '33333333-3333-4333-8333-333333333333',
       kind: 'IMPORTS',
       verification: 'observed',
+      snapshotSha: 'a'.repeat(40),
     };
-    expect(graphSchema.safeParse({ nodes: [node], edges: [edge], truncated: false }).success).toBe(
-      false,
-    );
     expect(
-      graphSchema.safeParse({ nodes: [node, node], edges: [], truncated: false }).success,
+      graphSchema.safeParse({
+        nodes: [node],
+        edges: [edge],
+        truncated: false,
+        warnings: [],
+        snapshotSha: 'a'.repeat(40),
+      }).success,
+    ).toBe(false);
+    expect(
+      graphSchema.safeParse({
+        nodes: [node, node],
+        edges: [],
+        truncated: false,
+        warnings: [],
+        snapshotSha: 'a'.repeat(40),
+      }).success,
     ).toBe(false);
   });
 });

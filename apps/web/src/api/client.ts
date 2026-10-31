@@ -65,7 +65,7 @@ const repo = (id: string) => `/repositories/${encodeURIComponent(id)}`;
 const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
 export const api = {
   health: (signal?: AbortSignal) =>
-    request('/health', z.object({ status: z.string() }), { signal }),
+    request('/health', s.healthSchema, { signal }),
   import: (url: string) => request('/repositories', s.importSchema, post({ url })),
   repository: (id: string, signal?: AbortSignal) =>
     request(repo(id), s.repositorySchema, { signal }),
@@ -93,12 +93,11 @@ export const api = {
   ask: (id: string, body: s.AskRequest) => request(`${repo(id)}/ask`, s.answerSchema, post(body)),
   impact: (id: string, body: s.ImpactRequest) =>
     request(`${repo(id)}/impact`, s.impactSchema, post(body)),
-  risk: (id: string, snapshotId: string, signal?: AbortSignal) =>
-    request(
-      `${repo(id)}/knowledge-risk?${new URLSearchParams({ snapshotId, limit: '50' })}`,
-      s.riskSchema,
-      { signal },
-    ),
+  risk: (id: string, snapshotId: string, cursor?: string, signal?: AbortSignal) => {
+    const params = new URLSearchParams({ snapshotId, limit: '50' });
+    if (cursor) params.set('cursor', cursor);
+    return request(`${repo(id)}/knowledge-risk?${params}`, s.riskSchema, { signal });
+  },
   prCheck: (id: string, prNumber: number) =>
     request(`${repo(id)}/pr-check`, z.object({ runId: z.string() }), post({ prNumber })),
   analysis: (id: string, runId: string, signal?: AbortSignal) =>

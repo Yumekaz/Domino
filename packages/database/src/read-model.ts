@@ -280,6 +280,7 @@ export async function searchEntities(
   const result = await db.query<Row>(
     `SELECT v.*,e.canonical_key FROM entity_versions v JOIN entities e ON e.id=v.entity_id AND e.repo_id=v.repo_id
     WHERE v.repo_id=$1 AND v.snapshot_id=$2 AND v.entity_id>$3::uuid AND (
+      $4 = '' OR
       position(lower($4) in lower(coalesce(v.title,'') || ' ' || coalesce(v.metadata->>'path','') || ' ' || e.canonical_key))>0
       OR EXISTS(SELECT 1 FROM evidence_documents d WHERE d.repo_id=$1 AND d.snapshot_id=$2 AND d.entity_id=v.entity_id AND d.search_tsv @@ websearch_to_tsquery('english',$4)))
     ORDER BY v.entity_id LIMIT $5`,

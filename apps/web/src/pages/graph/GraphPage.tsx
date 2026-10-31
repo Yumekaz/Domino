@@ -4,6 +4,7 @@ import { ArrowUpRight, Expand, Network, Search, Maximize2, Minimize2 } from 'luc
 import { graphRecordColors } from './network-elements';
 import { returnedEntityKinds } from '../../api/entity-kinds';
 import { api, fixtureMode } from '../../api/client';
+import { fixtureAuthId } from '../../dev/fixtureIds';
 import type { Graph } from '../../api/schemas';
 import {
   Badge,
@@ -35,7 +36,7 @@ export default function GraphPage() {
   const [layout, setLayout] = useState('fcose');
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
-  const root = focus || (fixtureMode ? 'auth' : '');
+  const root = focus || (fixtureMode ? fixtureAuthId : '');
   const searchQuery = useQuery({
     queryKey: ['graph-search', repoId, term],
     queryFn: ({ signal }) => api.search(repoId, term, undefined, signal),

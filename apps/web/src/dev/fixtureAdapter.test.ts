@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureRequest } from './fixtureAdapter';
+import { fixtureAuthId, fixtureRepositoryId } from './fixtureIds';
 import {
   analysisSchema,
   answerSchema,
@@ -10,20 +11,24 @@ import {
   riskSchema,
   searchSchema,
 } from '../api/schemas';
-const root = '/repositories/development-fixture';
+const root = `/repositories/${fixtureRepositoryId}`;
 const post = (body: unknown) => ({ method: 'POST', body: JSON.stringify(body) });
 describe('Explicit development fixture integration shapes', () => {
   it('validates the partial snapshot and complete response families', async () => {
     expect(repositorySchema.parse(await fixtureRequest(root)).snapshot?.status).toBe('partial');
     searchSchema.parse(await fixtureRequest(`${root}/search?q=auth`));
-    detailSchema.parse(await fixtureRequest(`${root}/entities/auth`));
+    detailSchema.parse(await fixtureRequest(`${root}/entities/${fixtureAuthId}`));
     riskSchema.parse(await fixtureRequest(`${root}/knowledge-risk`));
     analysisSchema.parse(await fixtureRequest(`${root}/analysis/fixture-run`));
   });
   it('only exposes graph edges whose endpoints are in the returned bounded neighborhood', async () => {
-    const first = graphSchema.parse(await fixtureRequest(`${root}/graph?entityId=auth&depth=1`));
+    const first = graphSchema.parse(
+      await fixtureRequest(`${root}/graph?entityId=${fixtureAuthId}&depth=1`),
+    );
     const expanded = graphSchema.parse(
-      await fixtureRequest(`${root}/graph?entityId=auth&depth=3&includeInferred=true`),
+      await fixtureRequest(
+        `${root}/graph?entityId=${fixtureAuthId}&depth=3&includeInferred=true`,
+      ),
     );
     expect(expanded.nodes.length).toBeGreaterThan(first.nodes.length);
     expect(first.edges.every((e) => e.verification !== 'inferred')).toBe(true);
