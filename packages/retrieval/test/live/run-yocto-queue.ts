@@ -116,6 +116,8 @@ function parseEvidence(user: string): PromptEvidence[] {
 async function main(): Promise<void> {
   const githubDataMode =
     process.env.DOMINO_ACCEPTANCE_GITHUB === "fixture" ? "public-fixture" : "live-api";
+  const fullCollection = process.env.DOMINO_ACCEPTANCE_FULL === "1";
+  const historyDepth = fullCollection ? 5_000 : HISTORY_DEPTH;
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "domino-live-acceptance-"));
   fs.rmdirSync(dataDir);
   const storeHandle = await createTestStore(dataDir);
@@ -123,6 +125,8 @@ async function main(): Promise<void> {
     startedAt: clock.isoNow(),
     remote: REMOTE,
     githubDataMode,
+    boundedCollection: !fullCollection,
+    historyDepth,
     mergeSha: MERGE_SHA,
     baseSha: BASE_SHA,
     liveModelCheck: {
@@ -140,9 +144,9 @@ async function main(): Promise<void> {
         branch: "main",
         focusIssueNumbers: [11],
         focusPullRequestNumbers: [12],
-        includePullRequestThreadComments: false,
-        includeReviews: false,
-        includeReviewComments: false,
+        includePullRequestThreadComments: fullCollection,
+        includeReviews: fullCollection,
+        includeReviewComments: fullCollection,
         collectionLimits: {
           maxIssues: 10,
           maxPullRequests: 5,
@@ -163,7 +167,7 @@ async function main(): Promise<void> {
           maxRateLimitWaitMs: 1_000,
         },
         checkout: {
-          historyDepth: HISTORY_DEPTH,
+          historyDepth,
           maxFiles: 5_000,
           maxBytes: 100 * 1024 * 1024,
           timeoutMs: 300_000,
@@ -314,7 +318,7 @@ async function main(): Promise<void> {
     const baseCheckout = await checkoutRepository({
       remoteUrl: REMOTE,
       sha: BASE_SHA,
-      historyDepth: HISTORY_DEPTH,
+      historyDepth,
       maxFiles: 5_000,
       maxBytes: 100 * 1024 * 1024,
       timeoutMs: 300_000,
@@ -323,8 +327,8 @@ async function main(): Promise<void> {
     try {
       baseAnalysis = await analyzeGitHistory(baseCheckout.directory, {
         sha: BASE_SHA,
-        maxCommits: HISTORY_DEPTH,
-        historyDepth: HISTORY_DEPTH,
+        maxCommits: historyDepth,
+        historyDepth,
         maxFiles: 5_000,
         timeoutMs: 300_000,
       });
