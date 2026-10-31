@@ -29,13 +29,12 @@ before the demo and check the snapshot SHA and coverage shown in the app.
 5. Open `index.js` in the graph, use the accessible record list to inspect a
    connection, and show the risk view's observed-contributor caveats.
 
-The source validator checks citation membership and conservative lexical
-overlap; it is not a proof of semantic entailment. Review the actual source
-before presenting a generated claim as fact. Source excerpts can be bounded and
-their original GitHub links remain the definitive context.
-An explicit-negation check rejects one class of contradiction when the cited
-sources contain no negation, but it does not establish which statement a
-negation applies to or detect all contradictory paraphrases.
+The validator requires each returned claim to be a complete source sentence from every
+cited source and also checks citation membership and conservative text support.
+It may withhold valid paraphrases or fragments; it does not establish whether a quote is
+complete or representative in context. Inspect the original source before
+presenting a claim as fact. Source excerpts can be bounded and their original
+GitHub links remain the definitive context.
 
 For a larger graph, a separate rehearsal indexed the public `sindresorhus/ky`
 repository at `3541888878c4d303a8bc2ad61815f4e048f55a5d`. It returned 182

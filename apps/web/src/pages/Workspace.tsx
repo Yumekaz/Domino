@@ -370,7 +370,12 @@ function RepoShell() {
   );
   return (
     <div className="app-layout">
-      <RepositoryCommand repoId={repoId} open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <RepositoryCommand
+        repoId={repoId}
+        snapshotId={query.data?.snapshot?.id}
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+      />
       <aside className="sidebar">
         <div className="sidebar-brand">
           <Logo compact />
@@ -479,7 +484,7 @@ function RepoShell() {
           <span>
             SHA <Sha value={query.data?.snapshot?.headSha} />
           </span>
-          <FocusIdentity repoId={repoId} entityId={focus} />
+          <FocusIdentity repoId={repoId} entityId={focus} snapshotId={query.data?.snapshot?.id} />
           <Badge tone={query.data?.snapshot?.status === 'ready' ? 'blue' : 'orange'}>
             {query.data?.snapshot?.status || 'No snapshot'}
           </Badge>

@@ -4,6 +4,7 @@ import { ArrowUpRight, Expand, Network, Search, Maximize2, Minimize2 } from 'luc
 import { graphRecordColors } from './network-elements';
 import { returnedEntityKinds } from '../../api/entity-kinds';
 import { api, fixtureMode } from '../../api/client';
+import { snapshotSearchKey } from '../../api/search-key';
 import { fixtureAuthId } from '../../dev/fixtureIds';
 import type { Graph } from '../../api/schemas';
 import {
@@ -38,7 +39,7 @@ export default function GraphPage() {
   const [term, setTerm] = useState('');
   const root = focus || (fixtureMode ? fixtureAuthId : '');
   const searchQuery = useInfiniteQuery({
-    queryKey: ['graph-search', repoId, term],
+    queryKey: snapshotSearchKey('graph-search', repoId, repository.snapshot?.id, term),
     queryFn: ({ pageParam, signal }) => api.search(repoId, term, pageParam, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor || undefined,
