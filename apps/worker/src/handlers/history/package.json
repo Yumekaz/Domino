@@ -1,0 +1,6 @@
+{
+  "name": "@domino/worker-history-handlers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module"
+}
