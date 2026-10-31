@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = { ...loadEnv(mode, repoRoot, ''), ...loadEnv(mode, process.cwd(), '') };
   const apiToken = process.env.DOMINO_API_TOKEN || env.DOMINO_API_TOKEN;
   return {
     plugins: [react(), tailwindcss()],
@@ -16,9 +16,7 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: 'http://127.0.0.1:3000',
           changeOrigin: true,
-          ...(apiToken
-            ? { headers: { Authorization: `Bearer ${apiToken}` } }
-            : {}),
+          ...(apiToken ? { headers: { Authorization: `Bearer ${apiToken}` } } : {}),
         },
       },
     },

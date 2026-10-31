@@ -16,6 +16,7 @@
     "packages/contracts/src/**/*.ts",
     "packages/database/src/**/*.ts",
     "packages/core/identity/**/*.ts",
-    "tests/backend/**/*.ts"
+    "tests/backend/**/*.ts",
+    "tests/live/**/*.ts"
   ]
 }

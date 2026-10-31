@@ -142,7 +142,19 @@ export async function createHistoryServices(
             question,
             ...(focusEntityId ? { focusEntityId } : {}),
           },
-          { store, retriever, llm: provider, clock },
+          {
+            store,
+            retriever,
+            llm: provider,
+            clock,
+            limits: {
+              maxChunks: 6,
+              maxNeighbors: 4,
+              maxInputChars: 12000,
+              maxOutputTokens: 600,
+              maxClaims: 4,
+            },
+          },
         ),
       );
       return answerSchema.parse({

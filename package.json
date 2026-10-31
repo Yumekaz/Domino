@@ -21,9 +21,11 @@
     "packages/retrieval"
   ],
   "scripts": {
-    "dev:api": "tsx apps/api/src/main.ts",
-    "dev:worker": "tsx apps/worker/src/main.ts",
-    "db:migrate": "tsx packages/database/src/migrate.ts",
+    "dev:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
+    "dev:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
+    "start:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
+    "start:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx packages/database/src/migrate.ts",
     "typecheck": "tsc --noEmit -p tsconfig.backend.json && tsc --noEmit -p tsconfig.history.integration.json && tsc --noEmit -p tsconfig.impact.integration.json",
     "typecheck:history": "tsc --noEmit -p tsconfig.history.integration.json",
     "typecheck:impact": "tsc --noEmit -p tsconfig.impact.integration.json",

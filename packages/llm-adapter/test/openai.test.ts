@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { OpenAiCompatibleProvider, createOpenAiProviderFromEnv } from "../src/openai.ts";
+import {
+  OpenAiCompatibleProvider,
+  createOpenAiProviderFromEnv,
+} from "../src/openai.ts";
 import { HistoryError } from "../../core/history/src/errors.ts";
 
 interface TestServer {
@@ -10,10 +13,15 @@ interface TestServer {
 }
 
 async function startServer(
-  handler: (request: http.IncomingMessage, response: http.ServerResponse) => void,
+  handler: (
+    request: http.IncomingMessage,
+    response: http.ServerResponse,
+  ) => void,
 ): Promise<TestServer> {
   const server = http.createServer(handler);
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  await new Promise<void>((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve()),
+  );
   const address = server.address();
   if (address === null || typeof address === "string") {
     throw new Error("Test server did not bind a TCP port");
@@ -22,7 +30,9 @@ async function startServer(
     url: `http://127.0.0.1:${address.port}/v1`,
     async close() {
       await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error === undefined ? resolve() : reject(error))),
+        server.close((error) =>
+          error === undefined ? resolve() : reject(error),
+        ),
       );
     },
   };
@@ -49,7 +59,9 @@ test("sends a structured chat request and normalizes the provider response", asy
     response.end(
       JSON.stringify({
         model: "test-model-2026",
-        choices: [{ message: { content: '{"status":"not_found","claims":[]}' } }],
+        choices: [
+          { message: { content: '{"status":"not_found","claims":[]}' } },
+        ],
         usage: { prompt_tokens: 120, completion_tokens: 8 },
       }),
     );
@@ -74,10 +86,49 @@ test("sends a structured chat request and normalizes the provider response", asy
     assert.equal(seenBody.model, "test-model");
     assert.equal(seenBody.max_completion_tokens, 256);
     assert.deepEqual(seenBody.response_format, { type: "json_object" });
-    const messages = seenBody.messages as Array<{ role: string; content: string }>;
-    assert.deepEqual(messages.map((message) => message.role), ["system", "user"]);
+    const messages = seenBody.messages as Array<{
+      role: string;
+      content: string;
+    }>;
+    assert.deepEqual(
+      messages.map((message) => message.role),
+      ["system", "user"],
+    );
     assert.equal(messages[0].content, "SYSTEM");
     assert.equal(messages[1].content, "USER");
+  } finally {
+    await server.close();
+  }
+});
+
+test("uses GPT-6 Luna without paid reasoning or an alternate model", async () => {
+  let seen: Record<string, unknown> = {};
+  const server = await startServer(async (request, response) => {
+    seen = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(
+      JSON.stringify({
+        model: "gpt-6-luna",
+        choices: [{ message: { content: '{"ok":true}' } }],
+      }),
+    );
+  });
+  try {
+    const provider = new OpenAiCompatibleProvider({
+      apiKey: "test-key-not-real",
+      model: "gpt-6-luna",
+      baseUrl: server.url,
+    });
+    await provider.generate({
+      system: "Return JSON.",
+      user: "Check.",
+      maxOutputTokens: 600,
+      timeoutMs: 5000,
+    });
+    assert.equal(seen.model, "gpt-6-luna");
+    assert.equal(seen.reasoning_effort, "none");
+    assert.equal(seen.max_completion_tokens, 600);
+    assert.equal(seen.store, false);
   } finally {
     await server.close();
   }
@@ -172,7 +223,8 @@ test("enforces a timeout and external cancellation", async () => {
         maxOutputTokens: 64,
         timeoutMs: 1_000,
       }),
-      (error: unknown) => error instanceof HistoryError && error.code === "LLM_TIMEOUT",
+      (error: unknown) =>
+        error instanceof HistoryError && error.code === "LLM_TIMEOUT",
     );
 
     const controller = new AbortController();
@@ -186,7 +238,8 @@ test("enforces a timeout and external cancellation", async () => {
     setTimeout(() => controller.abort(), 50);
     await assert.rejects(
       pending,
-      (error: unknown) => error instanceof HistoryError && error.code === "LLM_TIMEOUT",
+      (error: unknown) =>
+        error instanceof HistoryError && error.code === "LLM_TIMEOUT",
     );
   } finally {
     await server.close();
@@ -201,7 +254,8 @@ test("does not construct a provider without a key and reads the documented envir
         model: "test-model",
         baseUrl: "http://127.0.0.1:1/v1",
       }),
-    (error: unknown) => error instanceof HistoryError && error.code === "LLM_UNAVAILABLE",
+    (error: unknown) =>
+      error instanceof HistoryError && error.code === "LLM_UNAVAILABLE",
   );
   const previousKey = process.env.DOMINO_OPENAI_API_KEY;
   const previousModel = process.env.DOMINO_LLM_MODEL;

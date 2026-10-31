@@ -20,4 +20,4 @@ COPY apps/api apps/api
 COPY apps/worker apps/worker
 COPY packages packages
 ENV NODE_ENV=production
-CMD ["npm", "run", "dev:api"]
+CMD ["npm", "run", "start:api"]

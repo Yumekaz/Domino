@@ -9,14 +9,13 @@ interface HistoryEntity {
   sourceUrl: string | null;
   metadata: Record<string, unknown>;
 }
-type Store = Record<string, unknown>;
 
 /**
  * Adapt B's stable identity store to immutable per-snapshot entity views.
  * A snapshot is invisible until B publishes it; failed writes remain unpublished.
  */
-export function scopeHistoryStore(
-  base: Store,
+export function scopeHistoryStore<T extends object>(
+  base: T,
   pool: pg.Pool,
   scope: {
     repoId: string;
@@ -24,7 +23,7 @@ export function scopeHistoryStore(
     githubId?: number;
     structuralUnavailable?: boolean;
   },
-): Store {
+): T {
   async function readEntities(ids: string[]): Promise<HistoryEntity[]> {
     if (!ids.length) return [];
     const result = await pool.query(

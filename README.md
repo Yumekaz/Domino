@@ -42,6 +42,7 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 
 - [Proposed backend contracts, endpoints, setup boundaries and remaining integration gates](docs/API_CONTRACTS.md)
 - [Backend validation and live integration evidence](docs/BACKEND_VALIDATION.md)
+- [Current live workspace, GPT-6 Luna and contributor-change validation](docs/LIVE_WORKSPACE_VALIDATION.md)
 - [Desktop frontend freeze and current verification](docs/frontend/final/VISUAL_FREEZE.md)
 - [Spatial graph revision and the test-harness/product distinction](docs/frontend/network/GRAPH.md)
 - [Current investigation studio, desktop critique, and verification](docs/frontend/studio/HANDOFF.md)
@@ -54,6 +55,8 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 For deployment, serve `apps/web/dist` with SPA fallback to `index.html`, route `/api/v1` to the backend, and use HTTPS. Do not deploy the Vite development server. Source publication does not deploy or host the application.
 
 ## Backend development
+
+The standard API, worker and migration commands load an optional ignored root `.env`. Configure `DOMINO_OPENAI_API_KEY` there and keep `DOMINO_LLM_MODEL=gpt-6-luna`. Q&A uses a bounded evidence pack, 600 output tokens and no automatic model retries. The development proxy reads `DOMINO_API_TOKEN` server-side from the root or web environment; no credentials belong in `VITE_` variables. `npm run start:api` and `npm run start:worker` are also available for runtime use.
 
 Use Node 22.12+ for the API/worker development commands and PostgreSQL 13+. The Node test runner used by the history and impact suites requires Node 24+ (CI and Docker use 24.11.1). The backend and frontend retain separate lockfiles. From the repository root:
 
