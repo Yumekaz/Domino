@@ -82,8 +82,11 @@ jobs:
           printf 'export const a = 1;\n' > /tmp/dc-probe/src/a.ts
           printf "import { a } from './a';\nexport const b = a;\n" > /tmp/dc-probe/src/b.ts
           node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs /tmp/dc-probe/src --output-type json --progress none > /tmp/dc-min.json 2>/tmp/dc-min.err || true
-          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-min.json','utf8')); console.log('minimal modules', j.modules?.length);"
-          head -10 /tmp/dc-min.err
+          echo "--- minimal stderr"
+          cat /tmp/dc-min.err
+          echo "--- typescript install"
+          ls -d ../analyzer/node_modules/typescript 2>/dev/null || true
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-min.json','utf8')); console.log('minimal modules', j.modules?.length);" || true
       - name: Compute and publish the impact summary
         if: steps.analyzer.outputs.present == 'true'
         env:
