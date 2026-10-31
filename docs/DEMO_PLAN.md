@@ -1,5 +1,7 @@
 # Domino demo plan
 
+**Latest live proof:** see [Live workspace validation](LIVE_WORKSPACE_VALIDATION.md) for real browser-to-backend import, GPT-6 Luna, impact/source inspection, contributor-history replay and reindex verification. The older status notes below are historical; hosted delivery and broad performance/accessibility acceptance remain open. Automatic summary integration is deferred by the user's current instruction.
+
 Status: **integration complete, live acceptance pending.** This plan covers the integrated
 A/B/C backend and shared-contract frontend on `codex/backend-integration`. The code, tests, local
 analyzer dry run and fixture browser journeys pass; a fresh live import, live model answer, live
@@ -207,15 +209,15 @@ state. Never substitute a nearby record.
 
 ## Known blockers and limitations
 
-| Area | State | Owner / next action |
-| --- | --- | --- |
-| Shared runtime contracts | Integrated | Shared schemas consumed by the web client; live round trips still required |
-| Live import, search, Q&A, impact, risk, PR run | NOT PERFORMED locally | Run the integrated worker/API against an isolated database and public repo |
-| Live model answer / outage | NOT PERFORMED | Configure a server-side provider and rehearse supported/not-found/unavailable |
-| Live PR Actions summary | NOT PERFORMED | Merge the read-only workflow to the base branch, then open/synchronize a real PR |
-| Graph-scale acceptance | NOT PERFORMED; no real graph | Use a representative bounded live neighborhood |
-| Deployment/CORS/origin | NOT PERFORMED | Configure HTTPS, same-origin routing and reverse-proxy auth |
-| Mobile | Deferred | User priority decision |
+| Area                                           | State                        | Owner / next action                                                              |
+| ---------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| Shared runtime contracts                       | Integrated                   | Shared schemas consumed by the web client; live round trips still required       |
+| Live import, search, Q&A, impact, risk, PR run | NOT PERFORMED locally        | Run the integrated worker/API against an isolated database and public repo       |
+| Live model answer / outage                     | NOT PERFORMED                | Configure a server-side provider and rehearse supported/not-found/unavailable    |
+| Live PR Actions summary                        | NOT PERFORMED                | Merge the read-only workflow to the base branch, then open/synchronize a real PR |
+| Graph-scale acceptance                         | NOT PERFORMED; no real graph | Use a representative bounded live neighborhood                                   |
+| Deployment/CORS/origin                         | NOT PERFORMED                | Configure HTTPS, same-origin routing and reverse-proxy auth                      |
+| Mobile                                         | Deferred                     | User priority decision                                                           |
 
 ## Pre-demo go/no-go
 

@@ -1,4 +1,8 @@
-import type { LlmGenerateRequest, LlmGenerateResponse, LlmProvider } from "../../core/evidence/src/types.ts";
+import type {
+  LlmGenerateRequest,
+  LlmGenerateResponse,
+  LlmProvider,
+} from "../../core/evidence/src/types.ts";
 import { HistoryError } from "../../core/history/src/errors.ts";
 
 export interface OpenAiProviderOptions {
@@ -30,14 +34,21 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   constructor(options: OpenAiProviderOptions) {
     const key = options.apiKey.trim();
     if (key.length === 0) {
-      throw new HistoryError("LLM_UNAVAILABLE", "No model credential is configured", {
-        recoverable: true,
-      });
+      throw new HistoryError(
+        "LLM_UNAVAILABLE",
+        "No model credential is configured",
+        {
+          recoverable: true,
+        },
+      );
     }
     this.apiKey = key;
     this.model = options.model;
     this.provider = options.providerName ?? "openai";
-    this.baseUrl = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+    this.baseUrl = (options.baseUrl ?? "https://api.openai.com/v1").replace(
+      /\/+$/,
+      "",
+    );
     this.maxTokensField = options.maxTokensField ?? "max_completion_tokens";
     this.jsonMode = options.jsonMode ?? true;
   }
@@ -73,24 +84,37 @@ export class OpenAiCompatibleProvider implements LlmProvider {
             { role: "user", content: request.user },
           ],
           temperature: 0.1,
+          ...(this.model === "gpt-6-luna"
+            ? { reasoning_effort: "none", store: false }
+            : {}),
           [this.maxTokensField]: maxTokens,
-          ...(this.jsonMode ? { response_format: { type: "json_object" } } : {}),
+          ...(this.jsonMode
+            ? { response_format: { type: "json_object" } }
+            : {}),
         }),
         signal: controller.signal,
       });
       if (!response.ok) {
         const status = response.status;
         if (status === 429) {
-          throw new HistoryError("LLM_RATE_LIMITED", "The model provider rate-limited synthesis", {
-            recoverable: true,
-            details: { status },
-          });
+          throw new HistoryError(
+            "LLM_RATE_LIMITED",
+            "The model provider rate-limited synthesis",
+            {
+              recoverable: true,
+              details: { status },
+            },
+          );
         }
         if (status === 408) {
-          throw new HistoryError("LLM_TIMEOUT", "The model provider timed out", {
-            recoverable: true,
-            details: { status },
-          });
+          throw new HistoryError(
+            "LLM_TIMEOUT",
+            "The model provider timed out",
+            {
+              recoverable: true,
+              details: { status },
+            },
+          );
         }
         throw new HistoryError(
           "LLM_UNAVAILABLE",
@@ -100,23 +124,35 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       }
       const bodyText = await response.text();
       if (bodyText.length > 1_000_000) {
-        throw new HistoryError("LLM_BAD_OUTPUT", "The model response was unexpectedly large", {
-          recoverable: true,
-        });
+        throw new HistoryError(
+          "LLM_BAD_OUTPUT",
+          "The model response was unexpectedly large",
+          {
+            recoverable: true,
+          },
+        );
       }
       let body: ChatCompletionResponse;
       try {
         body = JSON.parse(bodyText) as ChatCompletionResponse;
       } catch {
-        throw new HistoryError("LLM_BAD_OUTPUT", "The model provider returned malformed JSON", {
-          recoverable: true,
-        });
+        throw new HistoryError(
+          "LLM_BAD_OUTPUT",
+          "The model provider returned malformed JSON",
+          {
+            recoverable: true,
+          },
+        );
       }
       const content = extractContent(body);
       if (content === null || content.trim().length === 0) {
-        throw new HistoryError("LLM_BAD_OUTPUT", "The model returned no textual content", {
-          recoverable: true,
-        });
+        throw new HistoryError(
+          "LLM_BAD_OUTPUT",
+          "The model returned no textual content",
+          {
+            recoverable: true,
+          },
+        );
       }
       return {
         text: content,
@@ -140,14 +176,22 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         throw error;
       }
       if (timedOut || controller.signal.aborted) {
-        throw new HistoryError("LLM_TIMEOUT", "The model request exceeded its timeout", {
-          recoverable: true,
-        });
+        throw new HistoryError(
+          "LLM_TIMEOUT",
+          "The model request exceeded its timeout",
+          {
+            recoverable: true,
+          },
+        );
       }
-      throw new HistoryError("LLM_UNAVAILABLE", "The model provider was unreachable", {
-        recoverable: true,
-        cause: error,
-      });
+      throw new HistoryError(
+        "LLM_UNAVAILABLE",
+        "The model provider was unreachable",
+        {
+          recoverable: true,
+          cause: error,
+        },
+      );
     } finally {
       clearTimeout(timeout);
       if (request.signal !== undefined) {
@@ -165,17 +209,22 @@ export interface OpenAiEnvOptions {
   jsonMode?: boolean;
 }
 
-export function createOpenAiProviderFromEnv(options: OpenAiEnvOptions = {}): LlmProvider {
+export function createOpenAiProviderFromEnv(
+  options: OpenAiEnvOptions = {},
+): LlmProvider {
   const apiKey =
     process.env.DOMINO_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY ?? "";
-  const model = options.model ?? process.env.DOMINO_LLM_MODEL ?? "gpt-4o-mini";
+  const model = options.model ?? process.env.DOMINO_LLM_MODEL ?? "gpt-6-luna";
   return new OpenAiCompatibleProvider({
     apiKey,
     model,
-    ...(options.baseUrl === undefined && process.env.DOMINO_LLM_BASE_URL === undefined
+    ...(options.baseUrl === undefined &&
+    process.env.DOMINO_LLM_BASE_URL === undefined
       ? {}
       : { baseUrl: options.baseUrl ?? process.env.DOMINO_LLM_BASE_URL }),
-    ...(options.providerName === undefined ? {} : { providerName: options.providerName }),
+    ...(options.providerName === undefined
+      ? {}
+      : { providerName: options.providerName }),
     ...(options.maxTokensField === undefined
       ? {}
       : { maxTokensField: options.maxTokensField }),
@@ -188,9 +237,13 @@ export class UnavailableLlmProvider implements LlmProvider {
   readonly model = "none";
 
   async generate(): Promise<LlmGenerateResponse> {
-    throw new HistoryError("LLM_UNAVAILABLE", "No model provider is configured", {
-      recoverable: true,
-    });
+    throw new HistoryError(
+      "LLM_UNAVAILABLE",
+      "No model provider is configured",
+      {
+        recoverable: true,
+      },
+    );
   }
 }
 

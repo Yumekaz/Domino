@@ -13,6 +13,8 @@ import { PostgresHistoryStore } from "../../../packages/retrieval/src/postgresSt
 import { PgSqlClient } from "../../../packages/retrieval/src/pgClient.ts";
 import { findReverseDependencies } from "../../../packages/database/src/dependencies.ts";
 import { publishedSnapshot } from "../../../packages/database/src/read-model.ts";
+import { scopeHistoryStore } from "../../../packages/database/src/history-port.ts";
+import type { HistoryStore } from "../../../packages/core/history/src/ports.ts";
 
 export type ImpactServices = {
   impact: ImpactServicePort;
@@ -29,6 +31,76 @@ export function createImpactServices(
 ): ImpactServices {
   const client = new PgSqlClient({ connectionString: databaseUrl, max: 2 });
   const store = new PostgresHistoryStore(client);
+  return {
+    impact: createStoredImpactService(pool, store),
+    close: () => client.close(),
+  };
+}
+
+export function createStoredImpactService(
+  pool: pg.Pool,
+  store: HistoryStore,
+): ImpactServicePort {
+  const engine = createImpactService(createImpactSource(pool, store));
+  return {
+    async analyze(repoId, input) {
+      const result = await engine.analyze(repoId, input);
+      const files = [
+        ...new Set(
+          result.affected.flatMap((item) =>
+            item.evidence.map((evidence) => evidence.file),
+          ),
+        ),
+      ];
+      if (!files.length) return result;
+      const rows = await pool.query<{
+        path: string;
+        source_url: string | null;
+      }>(
+        `SELECT metadata->>'path' AS path,source_url FROM entity_versions
+      WHERE repo_id=$1 AND snapshot_id=$2 AND kind='File' AND metadata->>'path'=ANY($3::text[])`,
+        [repoId, input.snapshotId, files],
+      );
+      const urls = new Map<string, string>();
+      for (const row of rows.rows) {
+        if (!row.source_url) continue;
+        try {
+          const url = new URL(row.source_url);
+          if (
+            url.protocol === "https:" &&
+            url.hostname === "github.com" &&
+            !url.username &&
+            !url.password &&
+            url.pathname.includes(`/blob/${result.snapshotSha}/`)
+          )
+            urls.set(row.path, url.toString());
+        } catch {
+          /* Missing or invalid provenance stays unavailable. */
+        }
+      }
+      return {
+        ...result,
+        affected: result.affected.map((item) => ({
+          ...item,
+          evidence: item.evidence.map((evidence) => {
+            const source = urls.get(evidence.file);
+            return source
+              ? {
+                  ...evidence,
+                  url: source + (evidence.line ? `#L${evidence.line}` : ""),
+                }
+              : evidence;
+          }),
+        })),
+      };
+    },
+  };
+}
+
+export function createImpactSource(
+  pool: pg.Pool,
+  store: HistoryStore,
+): ImpactServiceSource {
   const source: ImpactServiceSource = {
     async getPublishedSnapshot(repoId, snapshotId) {
       const snapshot = await publishedSnapshot(pool, repoId, snapshotId);
@@ -54,7 +126,11 @@ export function createImpactServices(
       };
     },
     async getCoChange(input): Promise<CoChangeResult> {
-      const dataset = (await store.getCoChangeDataset(
+      const scoped = scopeHistoryStore(store, pool, {
+        repoId: input.repoId,
+        snapshotId: input.snapshotId,
+      });
+      const dataset = (await scoped.getCoChangeDataset(
         input.repoId,
         input.snapshotId,
       )) as CoChangeDataset | null;
@@ -70,8 +146,5 @@ export function createImpactServices(
       });
     },
   };
-  return {
-    impact: createImpactService(source),
-    close: () => client.close(),
-  };
+  return source;
 }

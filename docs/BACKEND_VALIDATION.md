@@ -1,19 +1,21 @@
 # Backend validation record
 
+**Latest:** [Live workspace validation](LIVE_WORKSPACE_VALIDATION.md) records the snapshot-consistency fix, real GPT-6 Luna answers, merged reindex/contributor replay and browser-to-backend checks. Sections below preserve earlier evidence; historical “not performed” statements are superseded where the new record supplies actual proof.
+
 31 October 2026. This record distinguishes role A's branch from the separate B draft. The A+B integration checks used a temporary local checkout of B commit `62b1d7dfe757e760396ea85fcfc893eb9994631f`, with A-owned files copied alongside it. B's PR was not merged to perform the tests. All imported content below came from a real public repository; these results are not the frontend development fixture.
 
 ## Integration update
 
 Role B (`62b1d7d`) was merged into `codex/backend-integration` at merge commit `0855f02`. On the merged tree, without re-running live ingestion:
 
-| Check | Result |
-| --- | --- |
-| `npm run typecheck` | PASS: backend contracts/API/database and all B history, retrieval, evidence, risk and worker-handler sources |
-| `npm test` — Vitest | PASS: 16 tests, 3 skipped (real PostgreSQL/pg-boss suite requires its isolated database environment) |
-| `npm test` — history suites | PASS: 64 tests, 3 skipped (optional live Git/GitHub checks) |
-| Clean `npm ci --ignore-scripts` | PASS in an isolated temporary workspace with the updated root lockfile |
-| Runtime loader paths | PASS: the API/worker dynamically resolve all eight integrated B modules, including `createHistoryImportHandler` |
-| Frontend checks | PASS: `npm run typecheck` and 38 tests |
+| Check                           | Result                                                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`             | PASS: backend contracts/API/database and all B history, retrieval, evidence, risk and worker-handler sources    |
+| `npm test` — Vitest             | PASS: 16 tests, 3 skipped (real PostgreSQL/pg-boss suite requires its isolated database environment)            |
+| `npm test` — history suites     | PASS: 64 tests, 3 skipped (optional live Git/GitHub checks)                                                     |
+| Clean `npm ci --ignore-scripts` | PASS in an isolated temporary workspace with the updated root lockfile                                          |
+| Runtime loader paths            | PASS: the API/worker dynamically resolve all eight integrated B modules, including `createHistoryImportHandler` |
+| Frontend checks                 | PASS: `npm run typecheck` and 38 tests                                                                          |
 
 The live public import, a model-generated answer, C's impact/PR services, the frontend binding, Docker Compose and deployment were **not** re-run for this merge. The live evidence below remains the earlier role A+B validation.
 
@@ -21,20 +23,20 @@ The live public import, a model-generated answer, C's impact/PR services, the fr
 
 31 October 2026. Role C's domain code was merged into `codex/backend-integration` at `e8bde82`; this integration pass added the missing worker/API composition and D's shared-contract binding.
 
-| Check | Result |
-| --- | --- |
-| Backend typecheck (A, B, C, D API adapters) | PASS: `npm run typecheck` across backend, history and impact configs |
-| Vitest backend | PASS: 23 tests, 3 skipped (the real PostgreSQL/pg-boss suite requires `DOMINO_TEST_DATABASE_URL`) |
-| History suites | PASS: 64 tests, 3 optional live checks skipped |
-| Impact/analyzer/PR-action suites | PASS: 63 tests |
-| Worker structural analysis | PASS: a temporary exact-SHA checkout produced stored dependencies and `IMPORTS` edges through `replacePendingStructural` |
-| Deterministic impact over stored imports | PASS: direct `session.ts` and transitive `dashboard.tsx` reverse paths returned from persisted observations |
-| Manual PR run persistence | PASS: idempotent run reuse; a differing PR head persists a stale run with no substituted result |
-| PR-action local dry run | PASS: the real workflow script analyzed `apps/web/src/api/schemas.ts` with dependency-cruiser 18.7.0 and emitted a genuine step summary with direct dependents |
-| Live PR Actions | PASS: temporary PR #13 ran the read-only workflow on opened head `2e2a590…` (run 41175040860) and synchronized head `9410250…` (run 41175108532), each cruising 67 modules / 111 structural imports and returning direct dependents of `apps/web/src/api/client.ts` |
-| Frontend shared-contract migration | PASS: typecheck, lint, 40 tests, production build and production-fixture exclusion |
-| Browser fixture journeys | PASS: overview, history with an empty browse query, supported Q&A with source inspection, impact plus separate co-change sample/window, risk caveats, and a stale PR run; no captured console errors |
-| Clean workspace install | PASS: `npm ci --ignore-scripts` with the refreshed root lockfile |
+| Check                                       | Result                                                                                                                                                                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend typecheck (A, B, C, D API adapters) | PASS: `npm run typecheck` across backend, history and impact configs                                                                                                                                                                                                |
+| Vitest backend                              | PASS: 23 tests, 3 skipped (the real PostgreSQL/pg-boss suite requires `DOMINO_TEST_DATABASE_URL`)                                                                                                                                                                   |
+| History suites                              | PASS: 64 tests, 3 optional live checks skipped                                                                                                                                                                                                                      |
+| Impact/analyzer/PR-action suites            | PASS: 63 tests                                                                                                                                                                                                                                                      |
+| Worker structural analysis                  | PASS: a temporary exact-SHA checkout produced stored dependencies and `IMPORTS` edges through `replacePendingStructural`                                                                                                                                            |
+| Deterministic impact over stored imports    | PASS: direct `session.ts` and transitive `dashboard.tsx` reverse paths returned from persisted observations                                                                                                                                                         |
+| Manual PR run persistence                   | PASS: idempotent run reuse; a differing PR head persists a stale run with no substituted result                                                                                                                                                                     |
+| PR-action local dry run                     | PASS: the real workflow script analyzed `apps/web/src/api/schemas.ts` with dependency-cruiser 18.7.0 and emitted a genuine step summary with direct dependents                                                                                                      |
+| Live PR Actions                             | PASS: temporary PR #13 ran the read-only workflow on opened head `2e2a590…` (run 41175040860) and synchronized head `9410250…` (run 41175108532), each cruising 67 modules / 111 structural imports and returning direct dependents of `apps/web/src/api/client.ts` |
+| Frontend shared-contract migration          | PASS: typecheck, lint, 40 tests, production build and production-fixture exclusion                                                                                                                                                                                  |
+| Browser fixture journeys                    | PASS: overview, history with an empty browse query, supported Q&A with source inspection, impact plus separate co-change sample/window, risk caveats, and a stale PR run; no captured console errors                                                                |
+| Clean workspace install                     | PASS: `npm ci --ignore-scripts` with the refreshed root lockfile                                                                                                                                                                                                    |
 
 The live workflow originally produced zero modules because the package-only analyzer install hoisted dependency-cruiser without its TypeScript peer. Installing the trusted base workspace at the analyzer root fixed module discovery. The target checkout's nested Git metadata is also removed before analysis; target installs, builds, scripts and hooks are never executed.
 
@@ -58,7 +60,7 @@ The local Windows Node runtime required `NODE_USE_SYSTEM_CA=1` to trust the mach
 
 An initial frontend build inside a worktree nested under `node_modules` produced a larger generated CSS file. Rebuilding the same A+B checkout after moving it to a normal workspace path resolved the difference: SHA-256 hashes of the main CSS, workspace, graph and 3D-scene chunks matched the original frontend build. No frontend source or styling was changed.
 
-## Open acceptance gates
+## Historical open gates (superseded by the latest validation record where verified)
 
 - The shared contract is proposed for B/C/D review; it is not an accepted team contract yet. D has not replaced the provisional frontend schemas or performed a complete browser-to-live-backend journey.
 - C's real static analyzer, dependency paths, PR-check service and automatic GitHub Actions report are not present. Impact/PR routes return explicit unavailable errors until C's adapters are connected. The worker marks structural coverage as not attempted.
