@@ -2,7 +2,7 @@
 
 A cinematic product launch and an evidence-led engineering workspace for INNOVISTA PS06.
 
-The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The backend provides shared contracts, Fastify, PostgreSQL migrations, pg-boss integration, role B's history/retrieval/evidence pipeline, and role C's dependency-cruiser structural impact, manual PR analysis and read-only PR Actions workflow. The web client validates the shared contracts. Live model synthesis, a fresh live worker import and deployment remain release gates.
+The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. The backend provides shared contracts, Fastify, PostgreSQL migrations, pg-boss integration, role B's history/retrieval/evidence pipeline, and role C's dependency-cruiser structural impact, manual PR analysis, read-only PR Actions workflow and optional automatic Actions-to-Domino run ingestion. The web client validates the shared contracts. Hosted deployment and a hosted automatic-ingestion run remain release gates.
 
 ## Run
 
@@ -67,7 +67,7 @@ npm run db:migrate
 npm run dev:api
 ```
 
-In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker registers the integrated history pipeline (GitHub/Git collection, retrieval indexing, evidence Q&A and observed contributors) and runs C's pinned dependency-cruiser analyzer on the exact-SHA checkout. Structural dependencies and source-backed `IMPORTS` edges are stored before the snapshot is published; missing analyzer coverage remains visible in snapshot coverage and warnings. The API composes C's deterministic impact service and a manual PR-analysis run service over the indexed snapshot. The automatic PR check is the separate read-only `.github/workflows/pr-impact.yml` workflow. Use only an isolated development database. PostgreSQL migrations are checksum-verified and forward-only.
+In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker registers the integrated history pipeline (GitHub/Git collection, retrieval indexing, evidence Q&A and observed contributors) and runs C's pinned dependency-cruiser analyzer on the exact-SHA checkout. Structural dependencies and source-backed `IMPORTS` edges are stored before the snapshot is published; missing analyzer coverage remains visible in snapshot coverage and warnings. The API composes C's deterministic impact service and a manual PR-analysis run service over the indexed snapshot. The automatic PR check is the separate read-only `.github/workflows/pr-impact.yml` workflow. When `DOMINO_API_URL`, `DOMINO_WEB_URL` and the `DOMINO_API_TOKEN` secret are configured there, that workflow also ingests its verified result and real Actions URL into Domino, where the PR view can open the latest run with **Find automatic run**; otherwise it remains summary-only. Use only an isolated development database. PostgreSQL migrations are checksum-verified and forward-only.
 
 For installations with a corporate/system TLS root, Node can use the operating system certificate store with `NODE_USE_SYSTEM_CA=1`; do not disable certificate verification. Configure GitHub/model tokens only in the server environment. `DOMINO_GITHUB_TOKEN` is optional for public imports but avoids the much lower anonymous GitHub rate limit.
 

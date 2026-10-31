@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { ZodError, type ZodType } from "zod";
 import type pg from "pg";
 import type { PgBoss } from "pg-boss";
@@ -8,6 +8,7 @@ import {
   analysisSchema,
   answerSchema,
   askRequestSchema,
+  canonicalGithubUrl,
   detailQuerySchema,
   detailSchema,
   graphQuerySchema,
@@ -19,6 +20,9 @@ import {
   importRequestSchema,
   importResponseSchema,
   jobSchema,
+  latestAnalysisQuerySchema,
+  prAnalysisIngestRequestSchema,
+  prAnalysisIngestResponseSchema,
   prCheckRequestSchema,
   prCheckResponseSchema,
   reindexRequestSchema,
@@ -44,7 +48,11 @@ import {
   searchEntities,
 } from "../../../packages/database/src/read-model.ts";
 import { ApiFailure } from "./errors.ts";
-import { resolvePublicRepository, type GithubRepository } from "./github.ts";
+import {
+  resolvePublicRepository,
+  resolvePullRequest,
+  type GithubRepository,
+} from "./github.ts";
 import type { HistoryServices } from "./history-services.ts";
 
 type Deps = {
@@ -57,6 +65,7 @@ type Deps = {
   impact?: ImpactServicePort;
   prCheck?: PrCheckServicePort;
   resolveRepo?: (url: string) => Promise<GithubRepository>;
+  resolvePull?: typeof resolvePullRequest;
   enqueue?: typeof enqueueImport;
 };
 function parse<T>(schema: ZodType<T>, value: unknown): T {
@@ -73,6 +82,27 @@ const repoId = (params: unknown) =>
   parse(idSchema, (params as { repoId?: unknown }).repoId);
 const fieldId = (params: unknown, key: string) =>
   parse(idSchema, (params as Record<string, unknown>)[key]);
+const escapePattern = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function validActionsUrl(value: string, owner: string, name: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "github.com" &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      new RegExp(
+        `^/${escapePattern(owner)}/${escapePattern(name)}/actions/runs/\\d+(?:/attempts/\\d+)?/?$`,
+      ).test(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
 const sameToken = (header: string | undefined, expected: string) => {
   if (!header?.startsWith("Bearer ")) return false;
   const actual = Buffer.from(header.slice(7)),
@@ -411,6 +441,192 @@ export function createApp(deps: Deps) {
     return reply
       .code(202)
       .send(prCheckResponseSchema.parse(await deps.prCheck.start(id, body)));
+  });
+  app.post("/api/v1/integrations/pr-analysis", async (req, reply) => {
+    const body = parse(prAnalysisIngestRequestSchema, req.body);
+    const canonical = canonicalGithubUrl(body.repositoryUrl);
+    if (!canonical)
+      throw new ApiFailure(
+        400,
+        "UNSUPPORTED_REPO",
+        "Use a public github.com repository URL.",
+      );
+    const [, , , owner, name] = canonical.split("/");
+    const repoResult = await deps.pool.query<{ id: string }>(
+      `SELECT id FROM repositories
+       WHERE lower(owner)=lower($1) AND lower(name)=lower($2) LIMIT 1`,
+      [owner, name],
+    );
+    const repositoryId = repoResult.rows[0]?.id;
+    if (!repositoryId)
+      throw new ApiFailure(
+        409,
+        "REPOSITORY_NOT_INDEXED",
+        "Import this repository before ingesting pull-request analyses.",
+        false,
+      );
+    const resolvePull =
+      deps.resolvePull ??
+      ((url: string, number: number) =>
+        resolvePullRequest(
+          url,
+          number,
+          process.env.DOMINO_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN,
+        ));
+    const pull = await resolvePull(body.repositoryUrl, body.prNumber);
+    if (
+      pull.number !== body.prNumber ||
+      pull.baseSha !== body.baseSha ||
+      pull.headSha !== body.headSha
+    )
+      throw new ApiFailure(
+        409,
+        "PR_REVISION_MISMATCH",
+        "The supplied PR revisions do not match the public pull request.",
+        false,
+      );
+    if (!validActionsUrl(body.actionsUrl, owner, name))
+      throw new ApiFailure(
+        400,
+        "INVALID_ACTIONS_URL",
+        "Use the actual GitHub Actions run URL for this repository.",
+        false,
+      );
+    const idempotencyKey = createHash("sha256")
+      .update(
+        JSON.stringify({
+          repoId: repositoryId,
+          prNumber: body.prNumber,
+          baseSha: body.baseSha,
+          headSha: body.headSha,
+          event: body.event,
+          actionsUrl: body.actionsUrl,
+        }),
+      )
+      .digest("hex");
+    const existing = await deps.pool.query<{ id: string }>(
+      `SELECT id FROM analysis_runs
+       WHERE repo_id=$1 AND kind='pull_request' AND input->>'idempotencyKey'=$2
+       LIMIT 1`,
+      [repositoryId, idempotencyKey],
+    );
+    if (existing.rows[0])
+      return reply.code(202).send(
+        prAnalysisIngestResponseSchema.parse({
+          repoId: repositoryId,
+          runId: existing.rows[0].id,
+        }),
+      );
+    const runId = randomUUID();
+    const createdAt = new Date().toISOString();
+    const warnings = [
+      ...new Set([
+        ...body.result.warnings,
+        "Ingested from the trusted read-only PR workflow at the PR head.",
+      ]),
+    ];
+    const output = analysisSchema.parse({
+      id: runId,
+      status: "completed",
+      prNumber: pull.number,
+      baseSha: pull.baseSha,
+      headSha: pull.headSha,
+      event: body.event,
+      createdAt,
+      stale: false,
+      result: body.result,
+      warnings,
+      actionsUrl: body.actionsUrl,
+      prUrl: pull.prUrl,
+    });
+    const input = {
+      ...analysisInputSchema.parse({
+        prNumber: pull.number,
+        baseSha: pull.baseSha,
+        headSha: pull.headSha,
+        event: body.event,
+        stale: false,
+        actionsUrl: body.actionsUrl,
+        prUrl: pull.prUrl,
+        idempotencyKey,
+      }),
+      source: "github_actions",
+      changedFiles: body.changedFiles,
+    };
+    const inserted = await deps.pool.query<{ id: string }>(
+      `INSERT INTO analysis_runs(id,repo_id,snapshot_id,kind,status,input,output,warnings,created_at)
+       VALUES($1,$2,NULL,'pull_request','completed',$3::jsonb,$4::jsonb,$5::jsonb,now())
+       ON CONFLICT DO NOTHING RETURNING id`,
+      [
+        runId,
+        repositoryId,
+        JSON.stringify(input),
+        JSON.stringify(output),
+        JSON.stringify(warnings),
+      ],
+    );
+    if (inserted.rows[0])
+      return reply.code(202).send(
+        prAnalysisIngestResponseSchema.parse({
+          repoId: repositoryId,
+          runId: inserted.rows[0].id,
+        }),
+      );
+    const raced = await deps.pool.query<{ id: string }>(
+      `SELECT id FROM analysis_runs
+       WHERE repo_id=$1 AND kind='pull_request' AND input->>'idempotencyKey'=$2
+       LIMIT 1`,
+      [repositoryId, idempotencyKey],
+    );
+    if (!raced.rows[0])
+      throw new ApiFailure(
+        503,
+        "ANALYSIS_UNAVAILABLE",
+        "The ingested analysis run could not be persisted.",
+        true,
+      );
+    return reply.code(202).send(
+      prAnalysisIngestResponseSchema.parse({
+        repoId: repositoryId,
+        runId: raced.rows[0].id,
+      }),
+    );
+  });
+  app.get("/api/v1/repositories/:repoId/analyses/latest", async (req) => {
+    const query = parse(latestAnalysisQuerySchema, req.query);
+    const result = await deps.pool.query<{
+      id: string;
+      status: string;
+      input: unknown;
+      output: unknown;
+      warnings: unknown;
+      created_at: Date | string;
+    }>(
+      `SELECT id,status,input,output,warnings,created_at FROM analysis_runs
+       WHERE repo_id=$1 AND kind='pull_request' AND input->>'prNumber'=$2
+         AND input->>'source'='github_actions'
+       ORDER BY created_at DESC,id DESC LIMIT 1`,
+      [repoId(req.params), String(query.prNumber)],
+    );
+    const row = result.rows[0];
+    if (!row) throw new MissingRecord("No pull-request analysis run was found.");
+    if (row.output) return analysisSchema.parse(row.output);
+    const input = analysisInputSchema.safeParse(row.input);
+    if (!input.success)
+      throw new ApiFailure(
+        503,
+        "ANALYSIS_UNAVAILABLE",
+        "The stored run is missing required revision metadata.",
+        true,
+      );
+    return analysisSchema.parse({
+      ...input.data,
+      id: row.id,
+      status: row.status,
+      createdAt: new Date(row.created_at).toISOString(),
+      result: null,
+      warnings: Array.isArray(row.warnings) ? row.warnings : [],
+    });
   });
   app.get("/api/v1/repositories/:repoId/analysis/:runId", async (req) => {
     const rows = await deps.pool.query(

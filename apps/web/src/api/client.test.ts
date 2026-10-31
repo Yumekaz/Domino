@@ -172,3 +172,33 @@ describe('Evidence is never substituted', () => {
     ).toBe(false);
   });
 });
+
+describe('Automatic PR analysis lookup', () => {
+  it('requests the latest ingested Actions run for a PR and decodes it', async () => {
+    const analysis = {
+      id: '11111111-1111-4111-8111-111111111111',
+      status: 'completed',
+      prNumber: 12,
+      baseSha: 'a'.repeat(40),
+      headSha: 'b'.repeat(40),
+      event: 'synchronize',
+      createdAt: '2026-10-31T12:00:00.000Z',
+      actionsUrl: 'https://github.com/owner/repo/actions/runs/123',
+      prUrl: 'https://github.com/owner/repo/pull/12',
+      stale: false,
+      result: null,
+      warnings: [],
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(analysis), { status: 200 }));
+    vi.stubGlobal('fetch', fetcher);
+    await expect(api.latestAnalysis('repo-id', 12)).resolves.toMatchObject({
+      id: analysis.id,
+      actionsUrl: analysis.actionsUrl,
+    });
+    expect(fetcher.mock.calls[0][0]).toBe(
+      '/api/v1/repositories/repo-id/analyses/latest?prNumber=12',
+    );
+  });
+});

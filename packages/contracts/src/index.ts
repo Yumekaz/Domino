@@ -477,6 +477,45 @@ export const analysisSchema = z.object({
   result: impactSchema.nullable(),
   warnings: z.array(z.string()),
 });
+export const prAnalysisEventSchema = z.enum([
+  "opened",
+  "reopened",
+  "synchronize",
+]);
+export const prAnalysisIngestRequestSchema = z
+  .object({
+    repositoryUrl: githubUrlSchema,
+    prNumber: z.number().int().positive().max(2_147_483_647),
+    baseSha: shaSchema,
+    headSha: shaSchema,
+    event: prAnalysisEventSchema,
+    actionsUrl: z.url({ protocol: /^https$/ }),
+    changedFiles: z.array(repositoryPathSchema).max(300),
+    result: impactSchema,
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.result.snapshotSha !== value.headSha)
+      ctx.addIssue({
+        code: "custom",
+        path: ["result", "snapshotSha"],
+        message: "The ingested result must describe the PR head revision",
+      });
+    const declared = new Set(value.changedFiles);
+    if (value.result.changedFiles.some((file) => !declared.has(file)))
+      ctx.addIssue({
+        code: "custom",
+        path: ["result", "changedFiles"],
+        message: "The result must describe only the changed files it declares",
+      });
+  });
+export const prAnalysisIngestResponseSchema = z.object({
+  repoId: idSchema,
+  runId: idSchema,
+});
+export const latestAnalysisQuerySchema = z
+  .object({ prNumber: z.coerce.number().int().positive() })
+  .strict();
 export const healthSchema = z.object({
   status: z.enum(["ok", "degraded"]),
   database: z.enum(["ok", "unavailable"]),
@@ -495,6 +534,12 @@ export type Source = z.infer<typeof sourceSchema>;
 export type Analysis = z.infer<typeof analysisSchema>;
 export type AskRequest = z.infer<typeof askRequestSchema>;
 export type ImpactRequest = z.infer<typeof impactRequestSchema>;
+export type PrAnalysisIngestRequest = z.infer<
+  typeof prAnalysisIngestRequestSchema
+>;
+export type PrAnalysisIngestResponse = z.infer<
+  typeof prAnalysisIngestResponseSchema
+>;
 export interface ImpactServicePort {
   analyze(
     repoId: string,

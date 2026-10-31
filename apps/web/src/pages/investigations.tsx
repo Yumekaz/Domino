@@ -923,6 +923,7 @@ export function PRPage() {
   const [params, setParams] = useSearchParams();
   const [number, setNumber] = useState('');
   const [lookup, setLookup] = useState('');
+  const [latestError, setLatestError] = useState('');
   const runId = params.get('run') || '';
   const trigger = useMutation({
     mutationFn: () => api.prCheck(repoId, Number(number)),
@@ -931,6 +932,22 @@ export function PRPage() {
         p.set('run', d.runId);
         return p;
       }),
+  });
+  const latest = useMutation({
+    mutationFn: () => api.latestAnalysis(repoId, Number(number)),
+    onSuccess: (d) => {
+      setLatestError('');
+      setParams((p) => {
+        p.set('run', d.id);
+        return p;
+      });
+    },
+    onError: (error) =>
+      setLatestError(
+        error instanceof Error
+          ? error.message
+          : 'No automatic analysis run was found for this pull request.',
+      ),
   });
   const query = useQuery({
     queryKey: ['analysis', repoId, runId],
@@ -967,7 +984,10 @@ export function PRPage() {
               step="1"
               required
               value={number}
-              onChange={(e) => setNumber(e.target.value)}
+              onChange={(e) => {
+                setNumber(e.target.value);
+                setLatestError('');
+              }}
               placeholder="12"
             />
             <Button
@@ -975,6 +995,14 @@ export function PRPage() {
             >
               {trigger.isPending ? 'Requesting…' : 'Request analysis'}
               <ArrowRight size={15} />
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={latest.isPending || !/^[1-9]\d*$/.test(number)}
+              onClick={() => latest.mutate()}
+            >
+              {latest.isPending ? 'Finding…' : 'Find automatic run'}
             </Button>
           </div>
         </form>
@@ -1002,9 +1030,12 @@ export function PRPage() {
         </form>
       </div>
       {trigger.error && <ErrorState error={trigger.error} />}
+      {latestError && <p className="field-error">{latestError}</p>}
       <p className="field-hint">
-        Automatic checks require your repository’s GitHub Actions integration. Requesting an
-        analysis here does not install a workflow or publish a PR comment.
+        Automatic checks require the repository’s GitHub Actions integration. A configured workflow
+        can ingest its run and Actions URL here; “Find automatic run” opens the latest ingested run.
+        Requesting an analysis here uses the indexed snapshot and does not install a workflow or
+        publish a PR comment.
       </p>
       {!runId ? (
         <div className="pr-empty">

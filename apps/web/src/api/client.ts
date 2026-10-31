@@ -102,4 +102,10 @@ export const api = {
     request(`${repo(id)}/pr-check`, z.object({ runId: z.string() }), post({ prNumber })),
   analysis: (id: string, runId: string, signal?: AbortSignal) =>
     request(`${repo(id)}/analysis/${encodeURIComponent(runId)}`, s.analysisSchema, { signal }),
+  latestAnalysis: (id: string, prNumber: number, signal?: AbortSignal) =>
+    request(
+      `${repo(id)}/analyses/latest?${new URLSearchParams({ prNumber: String(prNumber) })}`,
+      s.analysisSchema,
+      { signal },
+    ),
 };
