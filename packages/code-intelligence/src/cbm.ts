@@ -125,7 +125,10 @@ export async function symbolEvidence(input: {
   );
   const result: EvidenceChunkRecord[] = [];
   const seen = new Set<string>();
-  for (const symbol of input.locations.slice(0, MAX_SYMBOLS)) {
+  const eligible = new Set((await input.checkout.listFiles()).filter(file =>
+    ['100644', '100755'].includes(file.mode) && file.size <= 128 * 1024,
+  ).map(file => file.path));
+  for (const symbol of input.locations.filter(symbol => eligible.has(symbol.path)).slice(0, MAX_SYMBOLS)) {
     const entity = files.get(symbol.path);
     if (!entity || seen.has(`${symbol.path}:${symbol.start}:${symbol.end}`))
       continue;
@@ -288,7 +291,7 @@ export async function analyzeCodeSymbols(input: {
     });
     const capHit = locations.length > MAX_SYMBOLS;
     warnings.push(
-      `Optional CBM ${CBM_VERSION}: ${chunks.length} function/method source excerpts exported from ${Math.min(locations.length, MAX_SYMBOLS)} candidate locations (limit ${MAX_SYMBOLS}). Coverage is partial: only existing file entities and excerpts up to 401 lines / 8000 characters are included. This enriches retrieval only and does not create verified dependency edges.`,
+      `Optional CBM ${CBM_VERSION}: ${chunks.length} function/method source excerpts exported from ${locations.length} bounded candidate locations (export limit ${MAX_SYMBOLS}). Coverage is partial: only existing file entities up to 128 KiB and excerpts up to 401 lines / 8000 characters are included. Oversized files are skipped. This enriches retrieval only and does not create verified dependency edges.`,
     );
     return { chunks, capHit, warnings };
   } finally {

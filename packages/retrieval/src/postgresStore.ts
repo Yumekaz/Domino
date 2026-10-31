@@ -221,6 +221,7 @@ export class PostgresHistoryStore implements HistoryStore {
     const result = await this.client.query<SnapshotRow>(
       `SELECT * FROM index_snapshots
        WHERE repo_id = $1 AND status IN ('ready', 'partial')
+         AND coalesce(tool_versions->>'purpose','repository') = 'repository'
        ORDER BY started_at DESC, id DESC LIMIT 1`,
       [repoId],
     );

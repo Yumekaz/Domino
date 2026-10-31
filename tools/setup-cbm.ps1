@@ -4,7 +4,7 @@ if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitOperatingSystem) {
   throw 'This setup supports Windows x64 only. See docs/CODE_INTELLIGENCE.md for other platforms.'
 }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$engineDir = Join-Path $repoRoot 'node_modules\.domino-engines\cbm-0.12.1'
+$engineDir = Join-Path $repoRoot '.domino\tools\cbm-0.12.1'
 New-Item -ItemType Directory -Path $engineDir -Force | Out-Null
 $archive = Join-Path $engineDir 'codebase-memory-mcp-windows-amd64.zip'
 $expected = '4e4e0f16b45233af5c757a1fcbe3c3b16e9056375b1fbe2ce020b6de75dedcc0'

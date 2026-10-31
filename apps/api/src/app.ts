@@ -23,6 +23,7 @@ import {
   prCheckResponseSchema,
   reindexRequestSchema,
   repositorySchema,
+  recentAnalysisSchema,
   riskQuerySchema,
   riskSchema,
   searchQuerySchema,
@@ -44,6 +45,7 @@ import {
   searchEntities,
 } from "../../../packages/database/src/read-model.ts";
 import { ApiFailure } from "./errors.ts";
+import { reconcilePrAnalysis } from "../../../packages/database/src/analysis-jobs.ts";
 import { resolvePublicRepository, type GithubRepository } from "./github.ts";
 import type { HistoryServices } from "./history-services.ts";
 
@@ -260,12 +262,31 @@ export function createApp(deps: Deps) {
     } catch (error) {
       if (!(error instanceof MissingRecord)) throw error;
     }
+    const runs = await deps.pool.query(
+      "SELECT id,status,input,created_at FROM analysis_runs WHERE repo_id=$1 AND kind='pull_request' ORDER BY created_at DESC,id DESC LIMIT 5",
+      [id],
+    );
+    const recentAnalyses = runs.rows.flatMap((run) => {
+      const metadata = analysisInputSchema.safeParse(run.input);
+      if (!metadata.success) return [];
+      const parsed = recentAnalysisSchema.safeParse({
+        id: run.id,
+        status: run.status,
+        prNumber: metadata.data.prNumber,
+        headSha: metadata.data.headSha,
+        event: metadata.data.event,
+        createdAt: new Date(run.created_at).toISOString(),
+        actionsUrl: metadata.data.actionsUrl,
+      });
+      return parsed.success ? [parsed.data] : [];
+    });
     return repositorySchema.parse({
       id: repo.id,
       owner: repo.owner,
       name: repo.name,
       url: repo.html_url,
       snapshot,
+      recentAnalyses,
     });
   });
   app.get("/api/v1/repositories/:repoId/jobs/:jobId", async (req) => {
@@ -413,12 +434,13 @@ export function createApp(deps: Deps) {
       .send(prCheckResponseSchema.parse(await deps.prCheck.start(id, body)));
   });
   app.get("/api/v1/repositories/:repoId/analysis/:runId", async (req) => {
-    const rows = await deps.pool.query(
-      "SELECT * FROM analysis_runs WHERE repo_id=$1 AND id=$2",
-      [repoId(req.params), fieldId(req.params, "runId")],
+    const row = await reconcilePrAnalysis(
+      deps.pool,
+      deps.boss,
+      repoId(req.params),
+      fieldId(req.params, "runId"),
     );
-    if (!rows.rows[0]) throw new MissingRecord("Analysis run was not found.");
-    const row = rows.rows[0];
+    if (!row) throw new MissingRecord("Analysis run was not found.");
     const input = analysisInputSchema.safeParse(row.input);
     if (!input.success)
       throw new ApiFailure(
@@ -428,7 +450,15 @@ export function createApp(deps: Deps) {
         true,
       );
     if (row.output) {
-      const output = analysisSchema.parse(row.output);
+      const parsedOutput = analysisSchema.safeParse(row.output);
+      if (!parsedOutput.success)
+        throw new ApiFailure(
+          503,
+          "ANALYSIS_UNAVAILABLE",
+          "The saved report is invalid or does not identify a fresh terminal PR-head result.",
+          true,
+        );
+      const output = parsedOutput.data;
       if (
         output.id !== row.id ||
         output.status !== row.status ||

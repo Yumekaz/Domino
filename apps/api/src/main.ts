@@ -1,6 +1,10 @@
 import { PgBoss } from "pg-boss";
 import { createPool } from "../../../packages/database/src/index.ts";
 import { HISTORY_QUEUE } from "../../../packages/database/src/jobs.ts";
+import {
+  ANALYSIS_QUEUE,
+  enqueuePrAnalysis,
+} from "../../../packages/database/src/analysis-jobs.ts";
 import { createApp } from "./app.ts";
 import {
   createHistoryServices,
@@ -20,6 +24,7 @@ const boss = new PgBoss(databaseUrl);
 boss.on("error", (error) => console.error("Queue error:", error.message));
 await boss.start();
 await boss.createQueue(HISTORY_QUEUE, { retryLimit: 1, expireInSeconds: 600 });
+await boss.createQueue(ANALYSIS_QUEUE, { retryLimit: 0, expireInSeconds: 360 });
 let history: HistoryServices | null = null;
 try {
   history = await createHistoryServices(pool, databaseUrl);
@@ -37,7 +42,7 @@ try {
   closeImpact = services.close;
   prCheck = createPrCheckService({
     pool,
-    impact,
+    enqueue: (repoId, input) => enqueuePrAnalysis(pool, boss, repoId, input),
     token: process.env.DOMINO_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN,
   });
 } catch (error) {
@@ -59,13 +64,27 @@ const app = createApp({
   allowedOrigins,
 });
 await app.listen({ host, port: Number(process.env.PORT || 3000) });
+process.send?.({ type: "domino.ready", role: "api" });
+let stopping = false;
 async function stop() {
+  if (stopping) return;
+  stopping = true;
   await app.close();
   if (history) await history.close();
   if (closeImpact) await closeImpact();
   await boss.stop({ graceful: true });
   await pool.end();
+  if (process.connected) process.disconnect();
 }
+process.on("message", (message) => {
+  if (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    message.type === "domino.shutdown"
+  )
+    void stop();
+});
 process.once("SIGINT", () => {
   void stop();
 });

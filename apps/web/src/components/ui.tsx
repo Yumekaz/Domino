@@ -1,4 +1,4 @@
-import { useId, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useId, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { AlertTriangle, ArrowUpRight, LoaderCircle, RotateCcw, SearchX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../api/errors';
@@ -119,11 +119,20 @@ export function SourceLink({ url, children }: { url?: string; children: ReactNod
     <span className="muted">{children} · source link unavailable</span>
   );
 }
-export function SourceList({ sources, idPrefix }: { sources: Source[]; idPrefix?: string }) {
+export function SourceList({
+  sources,
+  idPrefix,
+  initialLimit,
+}: {
+  sources: Source[];
+  idPrefix?: string;
+  initialLimit?: number;
+}) {
   const uniqueId = useId();
+  const [limit, setLimit] = useState(initialLimit ?? sources.length);
   return (
     <div className="source-list">
-      {sources.map((s, i) => (
+      {sources.slice(0, initialLimit ? limit : sources.length).map((s, i) => (
         <article className="source-item" key={s.id} id={`${idPrefix || uniqueId}-${i + 1}`}>
           <span className="source-index">{String(i + 1).padStart(2, '0')}</span>
           <div>
@@ -136,6 +145,11 @@ export function SourceList({ sources, idPrefix }: { sources: Source[]; idPrefix?
           </div>
         </article>
       ))}
+      {initialLimit && limit < sources.length ? (
+        <Button variant="secondary" onClick={() => setLimit(limit + initialLimit)}>
+          Show more sources ({Math.min(limit, sources.length)} of {sources.length})
+        </Button>
+      ) : null}
     </div>
   );
 }

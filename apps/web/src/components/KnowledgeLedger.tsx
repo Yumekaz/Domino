@@ -35,7 +35,7 @@ export default function KnowledgeLedger({
   const valid = total > 0 && file.contributors.every((contributor) => contributor.commits >= 0);
   return (
     <section className="knowledge-ledger" aria-label="Observed contributor concentration">
-      <aside className="ledger-files">
+      <aside className="ledger-files" aria-label="Returned file records" tabIndex={0}>
         <header>
           <Eyebrow>RETURNED FILES</Eyebrow>
           <span>{files.length}</span>
@@ -63,7 +63,13 @@ export default function KnowledgeLedger({
           They do not measure who knows the code.
         </p>
       </aside>
-      <div className="ledger-reading" key={file.path}>
+      <div
+        className="ledger-reading"
+        key={file.path}
+        role="region"
+        aria-label="Selected file contribution evidence"
+        tabIndex={0}
+      >
         <header>
           <div>
             <Eyebrow>THE HUMAN SIDE OF THE HISTORY</Eyebrow>

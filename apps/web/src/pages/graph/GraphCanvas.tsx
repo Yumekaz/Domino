@@ -4,6 +4,7 @@ import { Crosshair, Maximize2, Minus, Plus, RotateCcw, CircleDot, Rows3 } from '
 import { useDominoMotion } from '../../components/MotionPolicy';
 import type { Graph } from '../../api/schemas';
 import { networkElements } from './network-elements';
+import { spatialLayout } from './spatial-layout';
 import './network.css';
 
 export type GraphSelection = { kind: 'node' | 'edge'; id: string } | null;
@@ -241,8 +242,10 @@ export default function GraphCanvas({
     let disposed = false;
     let arrangeVersion = 0;
     let arranged = false;
+    let cancelLayout: (() => void) | undefined;
     const arrange = async (force = false) => {
       const version = ++arrangeVersion;
+      cancelLayout?.();
       const cached = !force ? cache.positions[presentation] : undefined;
       if (cached) {
         cy.nodes().positions((node) => cached[node.id()] ?? node.position());
@@ -257,12 +260,45 @@ export default function GraphCanvas({
         return;
       }
       let spatialAvailable = true;
+      let spatialPositions: Record<string, cytoscape.Position> | undefined;
       if (layout === 'fcose' && graph.nodes.length > 2) {
         element.setAttribute('aria-busy', 'true');
+        // A readable resting state appears immediately while the expensive
+        // arrangement runs away from the interaction/rendering thread.
+        cy.layout({
+          name: 'concentric',
+          animate: false,
+          fit: true,
+          padding: 30,
+          minNodeSpacing: 65,
+          concentric: (node: cytoscape.NodeSingular) => (node.data('root') ? 2 : 1),
+          levelWidth: () => 1,
+        } as cytoscape.LayoutOptions).run();
         try {
-          await import('./fcose-layout');
+          const task = spatialLayout({
+            nodes: cy.nodes().map((node) => {
+              const box = node.boundingBox({ includeLabels: true, includeOverlays: false });
+              return {
+                id: node.id(),
+                width: Math.max(node.outerWidth(), box.w),
+                height: Math.max(node.outerHeight(), box.h),
+              };
+            }),
+            edges: cy
+              .edges()
+              .map((edge) => ({
+                id: edge.id(),
+                source: edge.source().id(),
+                target: edge.target().id(),
+              })),
+            records,
+            dense,
+          });
+          cancelLayout = task.cancel;
+          spatialPositions = await task.promise;
           if (!disposed) setLayoutNote('');
         } catch {
+          if (disposed || version !== arrangeVersion) return;
           spatialAvailable = false;
           if (!disposed) setLayoutNote('Spatial layout unavailable. Showing the radial layout.');
         }
@@ -291,37 +327,25 @@ export default function GraphCanvas({
         avoidOverlap: true,
       };
       const options =
-        name === 'fcose'
+        name === 'concentric'
           ? {
               ...common,
-              quality: 'proof',
-              randomize: true,
-              packComponents: false,
-              idealEdgeLength: () => (records ? 170 : 125),
-              nodeRepulsion: () => 8000,
-              nodeSeparation: 90,
-              gravity: 0.12,
-              numIter: dense ? 1200 : 2200,
-              tilingPaddingVertical: 40,
-              tilingPaddingHorizontal: 40,
+              minNodeSpacing: 65,
+              spacingFactor: 1.15,
+              concentric: (node: cytoscape.NodeSingular) => (node.data('root') ? 2 : 1),
+              levelWidth: () => 1,
             }
-          : name === 'concentric'
+          : name === 'grid'
             ? {
                 ...common,
-                minNodeSpacing: 65,
-                spacingFactor: 1.15,
-                concentric: (node: cytoscape.NodeSingular) => (node.data('root') ? 2 : 1),
-                levelWidth: () => 1,
+                cols: graph.nodes.length <= 12 ? 3 : Math.ceil(Math.sqrt(graph.nodes.length * 1.5)),
               }
-            : name === 'grid'
-              ? {
-                  ...common,
-                  cols:
-                    graph.nodes.length <= 12 ? 3 : Math.ceil(Math.sqrt(graph.nodes.length * 1.5)),
-                }
-              : { ...common, spacingFactor: 1.3, circle: name === 'circle' };
+            : { ...common, spacingFactor: 1.3, circle: name === 'circle' };
       cy.resize();
-      cy.layout(options as cytoscape.LayoutOptions).run();
+      if (spatialPositions) {
+        cy.nodes().positions((node) => spatialPositions[node.id()] ?? node.position());
+        cy.fit(undefined, records ? 40 : 30);
+      } else cy.layout(options as cytoscape.LayoutOptions).run();
       // Rotate a tall force layout to suit a landscape canvas; topology is unchanged.
       const bounds = cy.nodes().boundingBox({ includeLabels: false });
       if (
@@ -393,6 +417,7 @@ export default function GraphCanvas({
     observer.observe(element);
     return () => {
       disposed = true;
+      cancelLayout?.();
       observer.disconnect();
       cancelAnimationFrame(resizeFrame);
       cancelAnimationFrame(zoomFrame);

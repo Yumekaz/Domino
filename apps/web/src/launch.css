@@ -329,9 +329,9 @@
   font-size: 9px;
 }
 .chapter-cap > span {
-  font: 7px 'IBM Plex Mono';
+  font: 10px 'IBM Plex Mono';
   letter-spacing: 0.8px;
-  color: #7a8386;
+  color: #56615d;
 }
 .memory-chapter {
   padding: 85px 0 70px;
@@ -351,11 +351,11 @@
   letter-spacing: -3.8px;
 }
 .memory-copy h2 span {
-  color: #8e9592;
+  color: #79827d;
 }
 .memory-copy p {
-  font-size: 13px;
-  color: #66716f;
+  font-size: 15px;
+  color: #596663;
   max-width: 330px;
   margin: 29px 0;
   line-height: 1.9;
@@ -374,17 +374,17 @@
   position: absolute;
   top: 1px;
   left: 0;
-  font: 7px 'IBM Plex Mono';
+  font: 10px 'IBM Plex Mono';
   letter-spacing: 0.6px;
-  color: #75847c;
+  color: #53635c;
 }
 .assembly-foot {
   position: absolute;
   bottom: 0;
   right: 0;
-  font: 7px 'IBM Plex Mono';
+  font: 10px 'IBM Plex Mono';
   letter-spacing: 0.5px;
-  color: #748179;
+  color: #53635c;
 }
 .memory-paper {
   position: absolute;
@@ -411,13 +411,13 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #758474;
-  font-size: 9px;
+  color: #53635c;
+  font-size: 11px;
 }
 .paper-kicker b {
   margin-left: auto;
-  font: 8px 'IBM Plex Mono';
-  color: #a0ac99;
+  font: 10px 'IBM Plex Mono';
+  color: #53635c;
 }
 .paper-title {
   font: 400 26px/1.08 'Space Grotesk Variable';
@@ -446,9 +446,9 @@
   align-items: center;
   margin-top: auto;
   padding-top: 20px;
-  font: 6px 'IBM Plex Mono';
+  font: 9px 'IBM Plex Mono';
   letter-spacing: 0.7px;
-  color: #7d8b74;
+  color: #53635c;
 }
 .paper-0 {
   left: 1%;
@@ -547,14 +547,14 @@
   color: #58716e;
 }
 .evidence-annotation p {
-  font-size: 12px;
-  color: #667972;
+  font-size: 14px;
+  color: #53635c;
   line-height: 1.8;
   margin-top: 7px;
 }
 .annotation-end {
-  font: 8px/1.7 'IBM Plex Mono';
-  color: #728a7e;
+  font: 10px/1.7 'IBM Plex Mono';
+  color: #53635c;
   margin-left: auto;
   text-align: right;
   flex-shrink: 0;
@@ -820,8 +820,8 @@
   letter-spacing: -1px;
 }
 .trust-columns p {
-  font-size: 12px;
-  color: #697b6c;
+  font-size: 14px;
+  color: #53635c;
   line-height: 1.9;
   margin: 16px 0 23px;
   max-width: 300px;

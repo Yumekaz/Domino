@@ -11,6 +11,7 @@ export const repositoryPathSchema = z
   .refine(
     (value) =>
       !value.startsWith("/") &&
+      !/^[a-zA-Z]:/.test(value) &&
       !value.includes("\\") &&
       !value.includes("\0") &&
       value
@@ -161,12 +162,22 @@ export const snapshotSchema = z.object({
   coverage: z.array(coverageSchema),
   warnings: z.array(z.string()),
 });
+export const recentAnalysisSchema = z.object({
+  id: idSchema,
+  prNumber: z.number().int().positive(),
+  status: runStatusSchema,
+  headSha: shaSchema,
+  createdAt: instantSchema,
+  event: z.string(),
+  actionsUrl: z.url({ protocol: /^https$/ }).optional(),
+});
 export const repositorySchema = z.object({
   id: idSchema,
   owner: z.string(),
   name: z.string(),
   url: githubUrlSchema,
   snapshot: snapshotSchema.nullable(),
+  recentAnalyses: z.array(recentAnalysisSchema).max(5).optional(),
 });
 export const jobSchema = z.object({
   id: idSchema,
@@ -453,6 +464,9 @@ export const prCheckRequestSchema = z
   .object({ prNumber: z.number().int().positive().max(2_147_483_647) })
   .strict();
 export const prCheckResponseSchema = z.object({ runId: idSchema });
+export const analysisJobSchema = z
+  .object({ runId: idSchema, repoId: idSchema })
+  .strict();
 export const analysisInputSchema = z.object({
   prNumber: z.number().int().positive(),
   baseSha: shaSchema,
@@ -463,20 +477,36 @@ export const analysisInputSchema = z.object({
   prUrl: z.url({ protocol: /^https$/ }).optional(),
   idempotencyKey: z.string().min(1).max(512),
 });
-export const analysisSchema = z.object({
-  id: idSchema,
-  status: runStatusSchema,
-  prNumber: z.number().int().positive(),
-  baseSha: shaSchema,
-  headSha: shaSchema,
-  event: z.string(),
-  createdAt: instantSchema,
-  actionsUrl: z.url({ protocol: /^https$/ }).optional(),
-  prUrl: z.url({ protocol: /^https$/ }).optional(),
-  stale: z.boolean(),
-  result: impactSchema.nullable(),
-  warnings: z.array(z.string()),
-});
+export const analysisSchema = z
+  .object({
+    id: idSchema,
+    status: runStatusSchema,
+    prNumber: z.number().int().positive(),
+    baseSha: shaSchema,
+    headSha: shaSchema,
+    event: z.string(),
+    createdAt: instantSchema,
+    actionsUrl: z.url({ protocol: /^https$/ }).optional(),
+    prUrl: z.url({ protocol: /^https$/ }).optional(),
+    stale: z.boolean(),
+    result: impactSchema.nullable(),
+    warnings: z.array(z.string()),
+  })
+  .superRefine((run, context) => {
+    if (
+      run.result &&
+      (run.stale ||
+        run.result.snapshotSha !== run.headSha ||
+        !["completed", "partial"].includes(run.status))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["result"],
+        message:
+          "Only a terminal, fresh PR-head report may contain impact results",
+      });
+    }
+  });
 export const healthSchema = z.object({
   status: z.enum(["ok", "degraded"]),
   database: z.enum(["ok", "unavailable"]),

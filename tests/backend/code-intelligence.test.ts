@@ -46,11 +46,18 @@ const entities: EntityRecord[] = [
 const checkout = {
   sha,
   directory: process.cwd(),
+  listFiles: async () => [{ path: 'source.ts', mode: '100644', blobSha: sha, size: 100 }],
   readFile: async () =>
     "// first\n// second\nexport function lateSymbol() {\n  return 42;\n}\n",
 } as unknown as CheckoutHandle;
 
 describe("optional code intelligence boundary", () => {
+  it("skips oversized files without dropping valid bounded evidence or reading their contents", async () => {
+    const readFile = vi.fn(checkout.readFile);
+    const large = { ...checkout, readFile, listFiles: async () => [{ path: 'source.ts', mode: '100644', blobSha: sha, size: 200_000 }] };
+    expect(await symbolEvidence({ locations: parseSymbolTable(table()), repository, snapshotId, headSha: sha, entities, checkout: large })).toEqual([]);
+    expect(readFile).not.toHaveBeenCalled();
+  });
   it("rejects paths escaping the repository and malformed result schemas", () => {
     expect(() => parseSymbolTable(table("../secret"))).toThrow();
     expect(() =>

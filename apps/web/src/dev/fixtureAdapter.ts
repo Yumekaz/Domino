@@ -418,7 +418,7 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
       event: 'synchronize',
       createdAt: '2026-10-06T10:00:00Z',
       stale: true,
-      result: impact,
+      result: null,
       warnings: [
         'Synthetic PR state. No Action was run or comment posted.',
         'Fixture head differs from the snapshot; this example is stale.',

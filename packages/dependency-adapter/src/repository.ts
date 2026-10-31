@@ -70,6 +70,7 @@ async function hasTsconfig(directory: string): Promise<boolean> {
  * values reach the analyzer process.
  */
 export async function analyzeRepositoryCheckout(input: {
+  signal?: AbortSignal;
   workingDirectory: string;
   repositoryId: string;
   snapshotSha: string;
@@ -116,6 +117,7 @@ export async function analyzeRepositoryCheckout(input: {
         analyzedAt: new Date().toISOString(),
       },
       timeoutMs: remainingMs,
+      ...(input.signal ? { signal: input.signal } : {}),
       ...(input.maxBufferBytes === undefined ? {} : { maxBufferBytes: input.maxBufferBytes }),
     });
   };

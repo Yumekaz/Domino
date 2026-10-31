@@ -32,7 +32,7 @@ export default function RevisionBridge({ run }: { run: Analysis }) {
           </div>
           <span>
             <GitPullRequest size={15} />
-            {run.event}
+            {run.event === 'actions_observed' ? 'GitHub Actions observed' : run.event}
           </span>
           <time>{run.createdAt}</time>
         </div>

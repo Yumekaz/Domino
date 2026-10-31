@@ -125,6 +125,7 @@ export async function publishedSnapshot(
 ): Promise<Row> {
   const result = await db.query<Row>(
     `SELECT * FROM index_snapshots WHERE repo_id=$1 AND status IN ('ready','partial') AND ($2::uuid IS NULL OR id=$2)
+     AND ($2::uuid IS NOT NULL OR coalesce(tool_versions->>'purpose','repository')='repository')
      ORDER BY completed_at DESC NULLS LAST,id DESC LIMIT 1`,
     [repoId, snapshotId ?? null],
   );

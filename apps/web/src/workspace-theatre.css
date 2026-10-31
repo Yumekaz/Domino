@@ -203,8 +203,8 @@
 .desktop-workspace .atlas-field-footer {
   background: #101d30;
   border-color: #253b57;
-  color: #6885a8;
-  font-size: 6px;
+  color: #8ca7c9;
+  font-size: 9px;
 }
 .desktop-workspace .atlas-context {
   background: #111d2e;
@@ -233,7 +233,7 @@
   border-color: #2c405b;
 }
 .desktop-workspace .atlas-snapshot dt {
-  color: #6985a7;
+  color: #8ca7c9;
   font-size: 9px;
 }
 .desktop-workspace .atlas-snapshot dd {
@@ -370,6 +370,32 @@
 .desktop-workspace .section-label {
   color: #96afce;
   font-size: 11px;
+}
+.desktop-workspace .investigation-link-index {
+  color: #8ca7c9;
+  font-size: 10px;
+}
+.desktop-workspace .impact-proof .section-label {
+  color: #536c8b;
+}
+.desktop-workspace .pagination-load-more {
+  background: #1c375c;
+  border-color: #4b70a0;
+  color: #e1ebf9;
+}
+.desktop-workspace .changed-file-list > code,
+.desktop-workspace .changed-file-list > .button-secondary {
+  background: #172d4a;
+  border-color: #456384;
+  color: #d4e3f8;
+}
+.desktop-workspace .changed-file-list > .button-secondary[aria-pressed='true'] {
+  background: #244873;
+  border-color: #7b9ac1;
+}
+.desktop-workspace .changed-file-list > .button-secondary code {
+  background: transparent;
+  color: inherit;
 }
 .desktop-workspace .investigate-heading > span {
   color: #5b789d;
@@ -1042,7 +1068,7 @@
   color: inherit;
 }
 .desktop-workspace .entity-inspector .eyebrow {
-  color: #647e9d;
+  color: #58718f;
 }
 .desktop-workspace .atlas-context .entity-inspector .eyebrow {
   color: #7c9dc5;

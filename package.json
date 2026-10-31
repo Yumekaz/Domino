@@ -22,6 +22,10 @@
     "packages/retrieval"
   ],
   "scripts": {
+    "demo": "node --use-system-ca --env-file-if-exists=.env --import tsx tools/local-demo.mjs",
+    "demo:doctor": "node --use-system-ca --env-file-if-exists=.env --import tsx tools/local-demo.mjs doctor",
+    "demo:stop": "node --use-system-ca --env-file-if-exists=.env --import tsx tools/local-demo.mjs stop",
+    "setup:postgres": "node --use-system-ca tools/setup-local-postgres.mjs",
     "setup:cbm": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/setup-cbm.ps1",
     "dev:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
     "dev:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
@@ -48,6 +52,7 @@
     "@electric-sql/pglite": "0.5.13",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
+    "axe-core": "4.14.0",
     "typescript": "5.9.3",
     "vitest": "5.0.5"
   }

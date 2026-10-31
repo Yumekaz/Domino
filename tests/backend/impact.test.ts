@@ -4,23 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import type pg from "pg";
-import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import {
   readStructuralImports,
   replacePendingStructural,
   type StructuralImportRecord,
 } from "../../packages/database/src/impact.ts";
-import { createPrCheckService } from "../../apps/api/src/pr-services.ts";
 import { createImpactService } from "../../packages/core/impact/src/service.ts";
 import { findReverseDependencies } from "../../packages/database/src/dependencies.ts";
 import { createStructuralAnalysis } from "../../apps/worker/src/structural.ts";
 import type { CheckoutHandle } from "../../packages/git-adapter/src/checkout.ts";
 import type { RepositoryRecord } from "../../packages/core/history/src/types.ts";
-import {
-  analysisSchema,
-  type Impact,
-  type ImpactServicePort,
-} from "../../packages/contracts/src/index.ts";
 
 const sha = "a".repeat(40);
 const otherSha = "b".repeat(40);
@@ -78,7 +72,10 @@ describe("snapshot-scoped structural storage", () => {
     db = new PGlite();
     await db.exec(
       await readFile(
-        new URL("../../packages/database/migrations/001_initial.sql", import.meta.url),
+        new URL(
+          "../../packages/database/migrations/001_initial.sql",
+          import.meta.url,
+        ),
         "utf8",
       ),
     );
@@ -134,7 +131,9 @@ describe("snapshot-scoped structural storage", () => {
     );
     expect(edges.rows).toHaveLength(2);
     expect(edges.rows.every((edge) => edge.kind === "IMPORTS")).toBe(true);
-    expect(edges.rows.some((edge) => edge.from_entity_id === session)).toBe(true);
+    expect(edges.rows.some((edge) => edge.from_entity_id === session)).toBe(
+      true,
+    );
   });
   it("rejects writes to published snapshots and reports missing File records", async () => {
     await db.query(
@@ -179,7 +178,10 @@ describe("deterministic API impact over stored imports", () => {
     db = new PGlite();
     await db.exec(
       await readFile(
-        new URL("../../packages/database/migrations/001_initial.sql", import.meta.url),
+        new URL(
+          "../../packages/database/migrations/001_initial.sql",
+          import.meta.url,
+        ),
         "utf8",
       ),
     );
@@ -274,7 +276,10 @@ describe("worker structural analysis", () => {
     db = new PGlite();
     await db.exec(
       await readFile(
-        new URL("../../packages/database/migrations/001_initial.sql", import.meta.url),
+        new URL(
+          "../../packages/database/migrations/001_initial.sql",
+          import.meta.url,
+        ),
         "utf8",
       ),
     );
@@ -292,7 +297,10 @@ describe("worker structural analysis", () => {
         },
       }),
     );
-    await writeFile(join(directory, "src", "auth.ts"), "export const token = 1;\n");
+    await writeFile(
+      join(directory, "src", "auth.ts"),
+      "export const token = 1;\n",
+    );
     await writeFile(
       join(directory, "src", "session.ts"),
       "import { token } from './auth';\nexport const session = token;\n",
@@ -356,116 +364,40 @@ describe("worker structural analysis", () => {
     expect(edges.rows.some((edge) => edge.kind === "IMPORTS")).toBe(true);
   });
   it("marks structural coverage partial when a missing extended tsconfig requires fallback", async () => {
-    await writeFile(join(directory, "tsconfig.json"), JSON.stringify({ extends: "@unavailable/tsconfig" }));
-    const result = await createStructuralAnalysis(pool, { repoId: repo, githubId: 42 })({
+    await writeFile(
+      join(directory, "tsconfig.json"),
+      JSON.stringify({ extends: "@unavailable/tsconfig" }),
+    );
+    const result = await createStructuralAnalysis(pool, {
+      repoId: repo,
+      githubId: 42,
+    })({
       repository: {
-        id: repo, githubId: 42, owner: "owner", name: "repo", defaultBranch: "main",
-        visibility: "public", htmlUrl: "https://github.com/owner/repo", createdAt: new Date().toISOString(),
+        id: repo,
+        githubId: 42,
+        owner: "owner",
+        name: "repo",
+        defaultBranch: "main",
+        visibility: "public",
+        htmlUrl: "https://github.com/owner/repo",
+        createdAt: new Date().toISOString(),
       } as RepositoryRecord,
       snapshotId: snapshot,
       headSha: sha,
       checkout: { directory } as unknown as CheckoutHandle,
     });
     expect(result.status).toBe("partial");
-    expect(result.warnings.some((warning) => /aliases.*may be missing/.test(warning))).toBe(true);
-    const stored = await readStructuralImports(pool, repo, snapshot, sha);
-    expect(stored.some((item) => item.importer === "src/session.ts" && item.imported === "src/auth.ts")).toBe(true);
-  });
-});
-
-describe("manual PR analysis persistence", () => {
-  let db: PGlite;
-  let pool: pg.Pool;
-  beforeAll(async () => {
-    db = new PGlite();
-    await db.exec(
-      await readFile(
-        new URL("../../packages/database/migrations/001_initial.sql", import.meta.url),
-        "utf8",
+    expect(
+      result.warnings.some((warning) =>
+        /aliases.*may be missing/.test(warning),
       ),
-    );
-    pool = pglitePool(db);
-    await db.query(
-      "INSERT INTO repositories VALUES ($1,1,'owner','repo','main','public','https://github.com/owner/repo',now())",
-      [repo],
-    );
-    await db.query(
-      "INSERT INTO index_snapshots(id,repo_id,head_sha,branch,status,started_at,completed_at) VALUES ($1,$2,$3,'main','ready',now(),now())",
-      [snapshot, repo, sha],
-    );
-  });
-  afterAll(async () => {
-    await db.close();
-  });
-  const impactResult: Impact = {
-    changedFiles: ["src/auth.ts"],
-    snapshotSha: sha,
-    affected: [
-      {
-        file: "src/session.ts",
-        signal: "static_reverse_dependency",
-        depth: 1,
-        path: ["src/session.ts", "src/auth.ts"],
-        impact: "possible",
-        explanation: "Imported directly.",
-        evidence: [{ type: "import", file: "src/session.ts", line: 4 }],
-      },
-    ],
-    warnings: [],
-    truncated: false,
-  };
-  const impact = {
-    analyze: vi.fn(async () => impactResult),
-  } satisfies ImpactServicePort;
-  const resolve = vi.fn(async (_url: string, prNumber: number) => ({
-    number: prNumber,
-    baseSha: otherSha,
-    headSha: sha,
-    prUrl: `https://github.com/owner/repo/pull/${prNumber}`,
-    changedFiles: ["src/auth.ts"],
-    truncated: false,
-  }));
-  it("persists an idempotent completed run from the indexed snapshot", async () => {
-    const service = createPrCheckService({ pool, impact, resolve });
-    const first = await service.start(repo, { prNumber: 12 });
-    const second = await service.start(repo, { prNumber: 12 });
-    expect(second.runId).toBe(first.runId);
-    expect(impact.analyze).toHaveBeenCalledTimes(1);
-    const row = await db.query<{ output: unknown }>(
-      "SELECT output FROM analysis_runs WHERE id=$1",
-      [first.runId],
-    );
-    const output = analysisSchema.parse(row.rows[0]!.output);
-    expect(output).toMatchObject({
-      status: "completed",
-      stale: false,
-      prNumber: 12,
-      result: { changedFiles: ["src/auth.ts"] },
-    });
-  });
-  it("persists a stale run without substituting a result", async () => {
-    const service = createPrCheckService({
-      pool,
-      impact,
-      resolve: async (_url, prNumber) => ({
-        number: prNumber,
-        baseSha: otherSha,
-        headSha: otherSha,
-        prUrl: `https://github.com/owner/repo/pull/${prNumber}`,
-        changedFiles: ["src/auth.ts"],
-        truncated: false,
-      }),
-    });
-    const run = await service.start(repo, { prNumber: 13 });
-    const row = await db.query<{ output: unknown }>(
-      "SELECT output FROM analysis_runs WHERE id=$1",
-      [run.runId],
-    );
-    const output = analysisSchema.parse(row.rows[0]!.output);
-    expect(output.stale).toBe(true);
-    expect(output.result).toBeNull();
-    expect(output.warnings.join(" ")).toMatch(/does not match the PR head/);
-    expect(output.warnings.join(" ")).toMatch(/refreshing the default branch may not match/i);
-    expect(output.warnings.join(" ")).not.toMatch(/refresh the index or request a new run/i);
+    ).toBe(true);
+    const stored = await readStructuralImports(pool, repo, snapshot, sha);
+    expect(
+      stored.some(
+        (item) =>
+          item.importer === "src/session.ts" && item.imported === "src/auth.ts",
+      ),
+    ).toBe(true);
   });
 });

@@ -81,8 +81,14 @@ export default function GraphPage() {
   return (
     <section
       className={`memory-network-page ${expanded ? 'graph-is-expanded' : ''}`}
+      role={expanded ? 'dialog' : undefined}
+      aria-modal={expanded || undefined}
+      aria-label={expanded ? 'Repository memory graph' : undefined}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') setExpanded(false);
+        if (event.key === 'Escape' && expanded) {
+          setExpanded(false);
+          event.currentTarget.querySelector<HTMLButtonElement>('[data-map-toggle]')?.focus();
+        }
         if (expanded && event.key === 'Tab') {
           const controls = Array.from(
             event.currentTarget.querySelectorAll<HTMLElement>(
@@ -106,7 +112,7 @@ export default function GraphPage() {
         title="Nothing is isolated"
         description="Explore a bounded neighborhood. Every relationship keeps its origin attached."
         action={
-          <Button variant="secondary" onClick={() => setExpanded(!expanded)}>
+          <Button data-map-toggle variant="secondary" onClick={() => setExpanded(!expanded)}>
             {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             {expanded ? 'Close map focus' : 'Expand map'}
           </Button>

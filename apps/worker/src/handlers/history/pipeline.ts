@@ -130,6 +130,7 @@ export type StructuralAnalysisHook = (input: {
   snapshotId: string;
   headSha: string;
   checkout: CheckoutHandle;
+  signal?: AbortSignal;
 }) => Promise<StructuralAnalysisResult>;
 
 export interface HistoryImportDeps {
@@ -410,6 +411,7 @@ export async function runHistoryImport(
           snapshotId: baseSnapshot.id,
           headSha,
           checkout,
+          signal,
         });
       } catch (error) {
         structural = {
@@ -444,8 +446,9 @@ export async function runHistoryImport(
           chunkResult.capHit = true;
           chunkResult.warnings.push("Optional code intelligence reached the shared evidence chunk limit.");
         }
-      } catch {
-        const warning = "Optional code intelligence was unavailable; baseline history and dependency analysis were retained.";
+      } catch (error) {
+        const code = error instanceof Error && /^CBM_[A-Z_]{1,48}$/.test(error.message) ? error.message : "CBM_UNAVAILABLE";
+        const warning = `Optional code intelligence was unavailable (${code}); baseline history and dependency analysis were retained.`;
         chunkResult.warnings.push(warning);
         codeIntelligence = { status: "failed", items: 0, warnings: [warning], capHit: false };
       }

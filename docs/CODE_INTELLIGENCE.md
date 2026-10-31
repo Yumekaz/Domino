@@ -18,7 +18,7 @@ Run from the repository root:
 npm run setup:cbm
 ```
 
-The setup downloads the official v0.12.1 archive, verifies its **pinned SHA-256**, and extracts only the executable, MIT license and bundled dependency notices under ignored `node_modules/.domino-engines`. Existing files are verified against that archive rather than silently overwritten. It does not run the upstream installer or change global agent/MCP settings, hooks or services.
+The setup downloads the official v0.12.1 archive, verifies its **pinned SHA-256**, and extracts only the executable, MIT license and bundled dependency notices under ignored `.domino/tools`. Native tools stay outside npm-managed directories. Existing files are verified against that archive rather than silently overwritten. It does not run the upstream installer or change global agent/MCP settings, hooks or services.
 
 Paste the three settings printed by setup into the ignored root `.env`:
 
@@ -38,7 +38,7 @@ On this Windows machine, CBM refused caches below shared temp and Desktop direct
 2. Require the pinned executable version, absolute paths and the same full SHA as the checkout.
 3. Index with `mode=fast`, `persistence=false`, `doc_candidates=false`, a generated snapshot-specific project name, and the checkout as `CBM_ALLOWED_ROOT`. No imported installs, builds or hooks are executed by Domino.
 4. Query the engine's JSON CLI for `Function` and `Method` locations. Validate the real export schema, including its numeric-string line numbers. Upstream text is data, never instructions.
-5. Consider at most 250 locations, read source through the existing safe checkout API, require an existing canonical File entity, deduplicate locations, and retain excerpts no larger than 401 lines / 8000 characters. Files over the 128 KiB read limit cause the optional adapter to fail closed. The existing shared evidence-chunk cap still applies.
+5. Query at most 251 rows per symbol kind, select at most 250 eligible locations, read source through the existing safe checkout API, require an existing canonical File entity, deduplicate locations, and retain excerpts no larger than 401 lines / 8000 characters. Files over 128 KiB are skipped before reading so a large test file does not discard otherwise valid evidence. The existing shared evidence-chunk cap still applies.
 6. Append excerpts alongside baseline evidence before the existing atomic snapshot publication. Always disclose partial symbol coverage; a cap flag is set only when the location or shared evidence limit is reached.
 7. On malformed output, wrong version, timeout or engine failure, retain baseline evidence and structural analysis and report failed optional coverage. An aborted import remains cancelled and cannot publish a fallback snapshot.
 8. Delete only this snapshot's temporary project in the dedicated cache. Cleanup gets a separate five-second attempt and reports a warning if it cannot finish. Tool argument files are removed. The engine cache/config itself is retained.
