@@ -1,3 +1,4 @@
+// Temporary PR-impact acceptance probe; no runtime behavior changes.
 import { z } from 'zod';
 import * as s from './schemas';
 import { ApiError } from './errors';
