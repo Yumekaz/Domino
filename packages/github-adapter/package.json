@@ -1,0 +1,15 @@
+{
+  "name": "@domino/github-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@octokit/rest": "22.0.1"
+  }
+}
