@@ -1,4 +1,17 @@
 import type { Graph } from '../../api/schemas';
+export const graphRecordColors: Record<string, string> = {
+  File: '#7da7ff',
+  FileRevision: '#7da7ff',
+  PullRequest: '#eea86b',
+  Issue: '#d5c170',
+  Commit: '#8bacd0',
+  Contributor: '#a2b3d0',
+  Document: '#9eb7bb',
+  DiscussionComment: '#8ba7c4',
+  Decision: '#d9b780',
+  Module: '#86b6e5',
+  Repository: '#a4c9e5',
+};
 /** Presentation metadata uses only the visible returned neighborhood. */
 export function networkElements(graph: Graph, rootId?: string) {
   const degrees = new Map(graph.nodes.map((node) => [node.id, 0]));

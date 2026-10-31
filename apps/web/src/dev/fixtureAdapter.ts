@@ -119,6 +119,16 @@ const impact: Impact = {
       explanation: 'Synthetic co-change association, not an import relationship.',
       evidence: [],
     },
+    {
+      file: 'src/runtime-entry.ts',
+      signal: 'unknown',
+      depth: 0,
+      path: [],
+      impact: 'unknown',
+      explanation:
+        'Synthetic unresolved runtime reference. No structural dependency has been established and no real repository was analyzed.',
+      evidence: [],
+    },
   ],
   warnings: [
     'Development fixture, not a computed impact result.',

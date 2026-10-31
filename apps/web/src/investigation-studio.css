@@ -1076,6 +1076,145 @@
 .ledger-reading {
   animation: studio-enter 260ms cubic-bezier(0.23, 1, 0.32, 1);
 }
+.desktop-workspace .hop-count.unknown {
+  background: #fff2db;
+  border: 1px dashed #c6a576;
+  color: #7d5c2e;
+}
+.desktop-workspace .hop-count.association {
+  background: #f5ebd9;
+  color: #85643d;
+}
+.impact-unknown {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  margin: 20px 0;
+  border: 1px solid #c7ae84;
+  border-radius: 4px;
+  background: #fff5e2;
+  color: #6d5535;
+}
+.impact-unknown > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.impact-unknown strong {
+  font-size: 13px;
+  line-height: 1.7;
+  font-weight: 600;
+}
+.impact-unknown p {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.85;
+  color: #735f43;
+}
+.impact-unknown code {
+  font-size: 10px;
+  display: block;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+  color: #775c32;
+}
+.returned-file-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0 24px;
+  padding: 0;
+}
+.returned-file-list > li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid #d2dce8;
+  border-radius: 4px;
+  color: #4d6887;
+  background: #f4f7fb;
+}
+.returned-file-list code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.cochange-scope {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 19px;
+  border: 1px solid #d6c8ac;
+  background: #faf6eb;
+  border-radius: 4px;
+  margin-bottom: 22px;
+}
+.cochange-scope > div {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.cochange-scope span {
+  font: 10px 'IBM Plex Mono';
+  color: #7c6c50;
+  letter-spacing: 0.4px;
+}
+.cochange-scope strong {
+  font-size: 13px;
+  color: #5f5b4c;
+  font-weight: 500;
+}
+.cochange-scope > p {
+  grid-column: 1/-1;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #746951;
+  margin: 0;
+}
+@media (min-width: 901px) {
+  .desktop-workspace .source-lens .eyebrow,
+  .desktop-workspace .lens-location > span {
+    font-size: 10px !important;
+  }
+  .desktop-workspace .source-item time,
+  .desktop-workspace .snapshot-time {
+    font-size: 11px;
+  }
+  .desktop-workspace .sample-question {
+    color: #c99d74;
+    font-size: 11px;
+  }
+  .desktop-workspace .sample-question:hover {
+    color: #efc69e;
+  }
+  .desktop-workspace .network-detail-options,
+  .desktop-workspace .network-detail-options > span {
+    font-size: 11px;
+  }
+  .desktop-workspace .network-scope > small {
+    font-size: 10px;
+  }
+  .desktop-workspace .studio-selected > span,
+  .desktop-workspace .studio-selected > code {
+    font-size: 11px;
+  }
+  .desktop-workspace .atlas-field-footer {
+    font-size: 9px;
+    letter-spacing: 0.3px;
+  }
+  .desktop-workspace .ledger-files code,
+  .desktop-workspace .spectrum-caption {
+    font-size: 11px;
+  }
+  .desktop-workspace .ledger-contributors strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .desktop-workspace .ledger-contributors > div > span:nth-last-child(2) {
+    flex-shrink: 0;
+  }
+}
 @keyframes studio-enter {
   from {
     opacity: 0.6;
