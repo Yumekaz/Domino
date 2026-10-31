@@ -79,7 +79,7 @@ async function run(): Promise<void> {
     job = (await call("GET", `/repositories/${repoId}/jobs/${jobId}`)) as typeof job;
     if (["ready", "partial"].includes(job!.status)) break;
     if (["failed", "cancelled"].includes(job!.status))
-      throw new Error(`Import ${jobId} ended as ${job.status}: ${job.error ?? "no detail"}`);
+      throw new Error(`Import ${jobId} ended as ${job!.status}: ${job!.error ?? "no detail"}`);
     await delay(2_000);
   }
   const finalStatus = job?.status;
