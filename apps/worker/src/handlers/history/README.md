@@ -176,6 +176,22 @@ model: the configured `OPENAI_API_KEY` was rejected by the provider with HTTP 40
 `invalid_api_key`. Live model synthesis is **NOT PERFORMED**. Unit tests cover
 provider structured output, malformed output, timeout, 429 and outage behavior.
 
+## Local install (A owns the eventual root workspace/lockfile)
+
+The packages pin exact versions. Until A establishes the root workspace, install
+the B package dependencies locally with no lockfile writes:
+
+```bash
+(cd packages/core/history && npm install --no-package-lock)
+(cd packages/github-adapter && npm install --no-package-lock)
+(cd packages/retrieval && npm install --no-package-lock)
+```
+
+`packages/git-adapter`, `packages/llm-adapter`, `packages/core/evidence` and
+`packages/core/knowledge-risk` have no runtime dependencies. Node 24+ is required
+for native TypeScript execution. A must add the same exact versions to the root
+workspace/lockfile; B does not edit root dependency files.
+
 ## Verification commands
 
 Run from the repository root unless noted:

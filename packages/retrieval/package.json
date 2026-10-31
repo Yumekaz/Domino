@@ -13,6 +13,7 @@
     "pg": "8.23.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.13"
+    "@electric-sql/pglite": "0.5.13",
+    "@types/pg": "8.23.1"
   }
 }
