@@ -16,8 +16,14 @@ import {
   Search,
   Shield,
   Sparkles,
+  MessageSquare,
+  Lightbulb,
+  Boxes,
+  FolderGit2,
   X,
 } from 'lucide-react';
+import { returnedEntityKinds } from '../api/entity-kinds';
+import { impactPresentation, hasStructuralPath } from '../components/impact-presentation';
 import { api, fixtureMode } from '../api/client';
 import { hasValidCitations, type Impact } from '../api/schemas';
 import {
@@ -41,6 +47,10 @@ import KnowledgeLedger from '../components/KnowledgeLedger';
 import RevisionBridge from '../components/RevisionBridge';
 
 export function EntityIcon({ kind, size = 18 }: { kind: string; size?: number }) {
+  if (kind === 'DiscussionComment') return <MessageSquare size={size} />;
+  if (kind === 'Decision') return <Lightbulb size={size} />;
+  if (kind === 'Module') return <Boxes size={size} />;
+  if (kind === 'Repository') return <FolderGit2 size={size} />;
   const Icon =
     kind === 'PullRequest'
       ? GitPullRequest
@@ -200,7 +210,7 @@ export function HistoryPage() {
           Type{' '}
           <select value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="all">All record types</option>
-            {['File', 'PullRequest', 'Issue', 'Commit', 'Document', 'Contributor'].map((k) => (
+            {returnedEntityKinds(items).map((k) => (
               <option key={k}>{k}</option>
             ))}
           </select>
@@ -439,8 +449,22 @@ export function AskPage() {
   );
 }
 export function ImpactResults({ result }: { result: Impact }) {
-  const [selected, setSelected] = useState<string | null>(result.affected[0]?.file || null);
-  const active = result.affected.find((a) => a.file === selected);
+  const first = result.affected[0];
+  const [selected, setSelected] = useState<{ file: string; signal?: string } | null>(
+    first ? { file: first.file, signal: first.signal } : null,
+  );
+  const active = result.affected.find(
+    (item) => item.file === selected?.file && item.signal === selected?.signal,
+  );
+  const presentation = active ? impactPresentation(active, result.changedFiles) : null;
+  const selectFile = (file: string, signal?: string) => {
+    const item = signal
+      ? result.affected.find((item) => item.file === file && item.signal === signal)
+      : result.affected.find(
+          (item) => item.file === file && hasStructuralPath(item, result.changedFiles),
+        ) || result.affected.find((item) => item.file === file);
+    setSelected({ file, signal: item?.signal });
+  };
   return (
     <>
       <div className="result-topline">
@@ -448,7 +472,12 @@ export function ImpactResults({ result }: { result: Impact }) {
         <Sha value={result.snapshotSha} />
       </div>
       <Warnings warnings={result.warnings} />
-      <ImpactAtlas result={result} selected={selected} onSelect={setSelected} />
+      <ImpactAtlas
+        result={result}
+        selected={selected?.file || null}
+        selectedSignal={selected?.signal}
+        onSelect={selectFile}
+      />
       {!result.affected.length ? (
         <Empty title="No affected paths were returned">
           This does not establish that the change has no runtime consequences. Review coverage and
@@ -457,58 +486,93 @@ export function ImpactResults({ result }: { result: Impact }) {
       ) : (
         <div className="impact-results">
           <div className="impact-files">
-            {result.affected.map((a) => (
-              <button
-                key={`${a.file}-${a.signal}`}
-                className={selected === a.file ? 'selected' : ''}
-                onClick={() => setSelected(a.file)}
-              >
-                <span
-                  className={`hop-count ${a.signal === 'historically_coupled' ? 'cochange' : a.depth > 1 ? 'transitive' : ''}`}
+            {result.affected.map((item) => {
+              const display = impactPresentation(item, result.changedFiles);
+              return (
+                <button
+                  key={JSON.stringify([item.file, item.signal])}
+                  className={
+                    selected?.file === item.file && selected?.signal === item.signal
+                      ? 'selected'
+                      : ''
+                  }
+                  onClick={() => selectFile(item.file, item.signal)}
                 >
-                  {a.signal === 'historically_coupled' ? '↔' : a.depth}
-                </span>
-                <div>
-                  <code>{a.file}</code>
-                  <span>
-                    {a.signal === 'historically_coupled'
-                      ? 'Historical co-change · association'
-                      : a.depth === 1
-                        ? 'Direct dependent · possible impact'
-                        : 'Transitive dependent · possible impact'}
-                  </span>
-                </div>
-                <ChevronRight size={17} />
-              </button>
-            ))}
+                  <span className={`hop-count ${display.kind}`}>{display.marker}</span>
+                  <div>
+                    <code>{item.file}</code>
+                    <span>{display.label}</span>
+                  </div>
+                  <ChevronRight size={17} />
+                </button>
+              );
+            })}
           </div>
           <section className="impact-proof">
-            {active ? (
+            {active && presentation ? (
               <>
-                <Badge tone="orange">
-                  {active.signal === 'historically_coupled'
-                    ? 'HISTORICAL ASSOCIATION'
-                    : `${active.depth} HOP${active.depth === 1 ? '' : 'S'} · POSSIBLE IMPACT`}
+                <Badge tone={presentation.kind === 'structural' ? 'blue' : 'orange'}>
+                  {presentation.badge}
                 </Badge>
                 <h3>{active.file}</h3>
+                {presentation.kind === 'unknown' && (
+                  <div className="impact-unknown">
+                    <HelpCircle size={18} />
+                    <div>
+                      <strong>Keep this signal separate from a dependency claim.</strong>
+                      <p>
+                        The returned classification or path does not establish an inspectable
+                        reverse dependency. Read the explanation and available evidence before
+                        relying on it.
+                      </p>
+                      <code>Reported signal: {active.signal}</code>
+                    </div>
+                  </div>
+                )}
                 <p>{active.explanation}</p>
-                <Eyebrow>
-                  {active.signal === 'historically_coupled'
-                    ? 'ASSOCIATED FILES · NOT AN IMPORT PATH'
-                    : 'IMPORT PATH · DEPENDENT → CHANGED FILE'}
-                </Eyebrow>
-                <ol className="dependency-path">
-                  {active.path.map((p, i) => (
-                    <li key={i}>
-                      <span>{String(i + 1).padStart(2, '0')}</span>
-                      <code>{p}</code>
-                    </li>
-                  ))}
-                </ol>
+                <Eyebrow>{presentation.pathLabel}</Eyebrow>
+                {presentation.kind === 'structural' ? (
+                  <ol className="dependency-path">
+                    {active.path.map((file, index) => (
+                      <li key={index}>
+                        <span>{String(index + 1).padStart(2, '0')}</span>
+                        <code>{file}</code>
+                      </li>
+                    ))}
+                  </ol>
+                ) : active.path.length ? (
+                  <ul className="returned-file-list">
+                    {active.path.map((file, index) => (
+                      <li key={index}>
+                        <FileCode2 size={13} />
+                        <code>{file}</code>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">No file sequence was returned for this signal.</p>
+                )}
+                {presentation.kind === 'association' && (
+                  <div className="cochange-scope">
+                    <div>
+                      <span>SAMPLE SIZE</span>
+                      <strong>Not available</strong>
+                    </div>
+                    <div>
+                      <span>OBSERVATION WINDOW</span>
+                      <strong>Not available</strong>
+                    </div>
+                    <p>
+                      This view has no reported sample/window metadata for the association.
+                      Co-change is context for investigation; it does not establish an import
+                      relationship.
+                    </p>
+                  </div>
+                )}
                 <SectionLabel>Evidence</SectionLabel>
                 {active.evidence.length ? (
-                  active.evidence.map((e, i) => (
-                    <div className="import-evidence" key={i}>
+                  active.evidence.map((e, index) => (
+                    <div className="import-evidence" key={index}>
                       <Badge>{e.type}</Badge>
                       <code>
                         {e.file}
@@ -519,15 +583,15 @@ export function ImpactResults({ result }: { result: Impact }) {
                   ))
                 ) : (
                   <p className="muted">
-                    No individual source locator was returned. This association requires additional
+                    No individual source locator was returned. This signal requires additional
                     source inspection.
                   </p>
                 )}
               </>
-            ) : selected && result.changedFiles.includes(selected) ? (
+            ) : selected && result.changedFiles.includes(selected.file) ? (
               <div className="changed-origin-proof">
                 <Badge tone="blue">PROPOSED CHANGE</Badge>
-                <h3>{selected}</h3>
+                <h3>{selected.file}</h3>
                 <p>
                   This is an input to the analysis. Follow a returned dependent to inspect why it
                   may be affected.
@@ -536,7 +600,7 @@ export function ImpactResults({ result }: { result: Impact }) {
               </div>
             ) : (
               <Empty title="Follow an affected path">
-                Choose a file to inspect each hop and its supporting evidence.
+                Choose a file to inspect the returned reasoning and its supporting evidence.
               </Empty>
             )}
           </section>

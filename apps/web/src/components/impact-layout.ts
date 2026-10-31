@@ -1,11 +1,12 @@
 import type { Impact } from '../api/schemas';
+import { hasStructuralPath } from './impact-presentation';
 export type ImpactDisplayNode = { file: string; level: number; changed: boolean };
 export type ImpactDisplayEdge = { source: string; target: string };
 /** Layout only. All vertices and segments come from returned static paths. No impact analysis. */
 export function returnedImpactPaths(result: Impact) {
   const nodes = new Map<string, ImpactDisplayNode>();
   const edges = new Map<string, ImpactDisplayEdge>();
-  const structural = result.affected.filter((a) => a.signal === 'static_reverse_dependency');
+  const structural = result.affected.filter((a) => hasStructuralPath(a, result.changedFiles));
   result.changedFiles
     .slice(0, 8)
     .forEach((file) => nodes.set(file, { file, level: 0, changed: true }));

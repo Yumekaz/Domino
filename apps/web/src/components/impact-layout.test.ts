@@ -49,6 +49,7 @@ describe('Returned impact display paths', () => {
       affected: Array.from({ length: 20 }, (_, i) => ({
         ...result.affected[0],
         file: `file${i}.ts`,
+        depth: 1,
         path: [`file${i}.ts`, 'a.ts'],
       })),
     };

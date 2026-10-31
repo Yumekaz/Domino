@@ -16,6 +16,10 @@ const glyphs: Record<string, string> = {
   Commit: '<circle cx="12" cy="12" r="4"/><path d="M2 12h6m8 0h6"/>',
   Contributor: '<circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/>',
   Document: '<path d="M5 3h14v18H5zM8 8h8m-8 4h8m-8 4h5"/>',
+  DiscussionComment: '<path d="M4 4h16v12H9l-5 5V4Zm4 4h8m-8 4h5"/>',
+  Decision: '<path d="M8 16c0-3-3-3-3-7a7 7 0 0 1 14 0c0 4-3 4-3 7H8Zm1 4h6m-5 3h4M9 8l2 2 4-4"/>',
+  Module: '<path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z"/>',
+  Repository: '<path d="M3 5h7l2 3h9v13H3V5Zm4 8h10m-10 4h6"/>',
 };
 const icon = (kind: string) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8f0ff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">${glyphs[kind === 'FileRevision' ? 'File' : kind] || glyphs.Document}</svg>`)}`;
@@ -112,6 +116,10 @@ export default function GraphCanvas({
           ['Commit', '#253c55', '#8bacd0'],
           ['Contributor', '#344055', '#a2b3d0'],
           ['Document', '#35494f', '#9eb7bb'],
+          ['DiscussionComment', '#293b50', '#8ba7c4'],
+          ['Decision', '#554429', '#d9b780'],
+          ['Module', '#1d3f62', '#86b6e5'],
+          ['Repository', '#233f55', '#a4c9e5'],
         ].map(([kind, fill, border]) => ({
           selector: `node[kind = "${kind}"]`,
           style: {

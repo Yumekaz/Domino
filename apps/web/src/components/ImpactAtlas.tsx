@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react';
 import { FileCode2, ArrowRight } from 'lucide-react';
 import type { Impact } from '../api/schemas';
 import { returnedImpactPaths } from './impact-layout';
+import { hasStructuralPath } from './impact-presentation';
 import { Badge, Eyebrow } from './ui';
 const subscribeToWidth = (callback: () => void) => {
   const media = window.matchMedia('(max-width: 640px)');
@@ -12,16 +13,22 @@ const isCompact = () => window.matchMedia('(max-width: 640px)').matches;
 export default function ImpactAtlas({
   result,
   selected,
+  selectedSignal,
   onSelect,
 }: {
   result: Impact;
   selected: string | null;
-  onSelect: (file: string) => void;
+  selectedSignal?: string;
+  onSelect: (file: string, signal?: string) => void;
 }) {
   const layout = useMemo(() => returnedImpactPaths(result), [result]);
   const compact = useSyncExternalStore(subscribeToWidth, isCompact, () => false);
-  const active = result.affected.find((a) => a.file === selected);
-  const chosen = new Set(active?.signal === 'static_reverse_dependency' ? active.path : []);
+  const active = result.affected.find(
+    (a) => a.file === selected && (!selectedSignal || a.signal === selectedSignal),
+  );
+  const chosen = new Set(
+    active && hasStructuralPath(active, result.changedFiles) ? active.path : [],
+  );
   const depth = Math.max(1, ...layout.nodes.map((n) => n.level));
   const levelStarts: number[] = [];
   let verticalHeight = 35;
@@ -134,7 +141,7 @@ export default function ImpactAtlas({
         <div className="cochange-rail">
           <Eyebrow>HISTORICAL CO-CHANGE / SEPARATE SIGNAL</Eyebrow>
           {associations.map((a) => (
-            <button key={a.file} onClick={() => onSelect(a.file)}>
+            <button key={a.file} onClick={() => onSelect(a.file, a.signal)}>
               <span>↔</span>
               <code>{a.file}</code>
               <ArrowRight size={13} />

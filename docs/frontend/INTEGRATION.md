@@ -39,6 +39,7 @@ Every listed integration is client wiring, **not a validated live round trip**. 
 7. Confirm deployed API origin/CORS and any frontend authentication requirement. No API/GitHub/model secrets belong in the browser. Same-origin `/api/v1` is the default; local proxy target is port 3000.
 8. Confirm source URLs and evidence excerpts are claim-bearing. Client citation-membership checks do not establish semantic support or source existence; server validation remains mandatory.
 9. Supply a real issue → PR → commit → file chain, multi-hop import graph, Git-derived contributor history, and Actions run to complete live acceptance. Synthetic UI exercises are not substitutes for these proofs.
+10. Finalize historical co-change sample size and observation-window fields. They are required by master spec 9.1 but absent from the illustrative impact response/provisional decoder. The UI currently discloses them as unavailable; it does not infer them from path length or evidence count. Unknown/incomplete signals are rendered separately and never added to the structural cascade.
 
 ## Failure behavior
 

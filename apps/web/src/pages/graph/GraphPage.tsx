@@ -1,6 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Expand, Network, Search, Maximize2, Minimize2 } from 'lucide-react';
+import { graphRecordColors } from './network-elements';
+import { returnedEntityKinds } from '../../api/entity-kinds';
 import { api, fixtureMode } from '../../api/client';
 import type { Graph } from '../../api/schemas';
 import {
@@ -198,15 +200,7 @@ export default function GraphPage() {
             Record type{' '}
             <select value={kind} onChange={(e) => setKind(e.target.value)}>
               <option value="all">All types</option>
-              {[
-                'File',
-                'FileRevision',
-                'Issue',
-                'PullRequest',
-                'Commit',
-                'Contributor',
-                'Document',
-              ].map((k) => (
+              {returnedEntityKinds(query.data?.nodes || []).map((k) => (
                 <option key={k}>{k}</option>
               ))}
             </select>
@@ -293,30 +287,12 @@ export default function GraphPage() {
                   </Empty>
                 )}
                 <div className="graph-legend">
-                  <span>
-                    <i className="blue-dot" />
-                    File
-                  </span>
-                  <span>
-                    <i className="orange-dot diamond" />
-                    Pull request
-                  </span>
-                  <span>
-                    <i className="yellow-dot" />
-                    Issue
-                  </span>
-                  <span>
-                    <i style={{ background: '#8bacd0' }} />
-                    Commit
-                  </span>
-                  <span>
-                    <i style={{ background: '#a2b3d0' }} />
-                    Contributor
-                  </span>
-                  <span>
-                    <i style={{ background: '#9eb7bb' }} />
-                    Document
-                  </span>
+                  {[...new Set(graph.nodes.map((node) => node.kind))].map((recordKind) => (
+                    <span key={recordKind}>
+                      <i style={{ background: graphRecordColors[recordKind] || '#9fb1c7' }} />
+                      {recordKind.replace(/([a-z])([A-Z])/g, '$1 $2')}
+                    </span>
+                  ))}
                   <span>— Observed</span>
                   <span>··· Derived</span>
                   <span>– – Inferred</span>
