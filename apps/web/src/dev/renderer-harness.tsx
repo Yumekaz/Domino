@@ -124,6 +124,12 @@ function RendererHarness() {
       <main className="renderer-harness">
         <header>
           <div>
+            <a
+              className="harness-product-link"
+              href="/app/repositories/development-fixture/graph?focus=auth"
+            >
+              Open the actual Domino workspace ↗
+            </a>
             <strong>DEVELOPMENT RENDERER HARNESS</strong>
             <p>
               Generated renderer stress data. No repository evidence, analysis, sources, or product
@@ -175,6 +181,8 @@ function RendererHarness() {
           <GraphCanvas
             graph={graph}
             layout="grid"
+            initialPresentation="records"
+            testLabel={`${count} generated records. This is a load test, not the product graph.`}
             selection={selection}
             onSelect={setSelection}
             appearance="dark"

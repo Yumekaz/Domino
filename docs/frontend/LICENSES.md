@@ -9,6 +9,7 @@ Read from the installed exact package versions on 30 October 2026; Three.js decl
 | `@fontsource/ibm-plex-mono` | 5.3.0 | OFL-1.1 |
 | `@tanstack/react-query` | 5.105.0 | MIT |
 | `cytoscape` | 3.34.4 | MIT |
+| `cytoscape-fcose` | 2.2.0 | MIT |
 | `lucide-react` | 1.65.0 | ISC |
 | `motion` | 14.9.0 | MIT |
 | `react` | 19.3.1 | MIT |
@@ -31,3 +32,5 @@ Read from the installed exact package versions on 30 October 2026; Three.js decl
 | `typescript-eslint` | 8.72.1 | MIT |
 | `vite` | 8.3.5 | MIT |
 | `vitest` | 5.0.5 | MIT |
+
+The spatial graph also bundles `cose-base` 2.2.0 and `layout-base` 2.0.1 as transitive layout dependencies, both MIT. Their license texts and the fCoSE license are retained in [third-party](third-party/). These additions were checked from installed package declarations on 31 October 2026. fCoSE attribution and the requested publication reference are recorded in [GRAPH.md](network/GRAPH.md).
