@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -340,9 +340,19 @@ async function main() {
       .map((file) => file.filename)
       .filter((file) => !isCodeFile(file) && !isBinaryFile(file));
 
+    const targetDirectory = resolve(targetRoot, targetPath);
+    if (!existsSync(targetDirectory)) {
+      throw new PrImpactError(
+        "TARGET_NOT_FOUND",
+        "The configured target directory does not exist in the PR checkout.",
+      );
+    }
     const tsConfigPath = process.env.DOMINO_TSCONFIG
       ? resolve(targetRoot, process.env.DOMINO_TSCONFIG)
       : autoDetectTsConfig(targetRoot, targetPath);
+    console.log(
+      `[domino] target=${targetDirectory} entries=${readdirSync(targetDirectory).length} tsconfig=${tsConfigPath ?? "none"}`,
+    );
     const config = buildDependencyCruiserConfig(
       tsConfigPath ? { tsConfigPath } : {},
     );
@@ -367,6 +377,7 @@ async function main() {
       timeoutMs: 120_000,
       maxBufferBytes: 64 * 1024 * 1024,
     });
+    console.log(`[domino] analyzer summary=${JSON.stringify(analysis.summary)}`);
     const workflowWarnings = [
       ...changed.warnings,
       ...(nonCodeFiles.length > 0
