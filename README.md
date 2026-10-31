@@ -43,6 +43,7 @@ Client safety and adapter tests cover malformed responses, connection errors, un
 - [Proposed backend contracts, endpoints, setup boundaries and remaining integration gates](docs/API_CONTRACTS.md)
 - [Backend validation and live integration evidence](docs/BACKEND_VALIDATION.md)
 - [Current live workspace, GPT-6 Luna and contributor-change validation](docs/LIVE_WORKSPACE_VALIDATION.md)
+- [Optional CBM symbol-source intelligence: setup, boundaries and real-repository acceptance](docs/CODE_INTELLIGENCE.md)
 - [Desktop frontend freeze and current verification](docs/frontend/final/VISUAL_FREEZE.md)
 - [Spatial graph revision and the test-harness/product distinction](docs/frontend/network/GRAPH.md)
 - [Current investigation studio, desktop critique, and verification](docs/frontend/studio/HANDOFF.md)
@@ -70,6 +71,8 @@ npm run dev:api
 In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker registers the integrated history pipeline (GitHub/Git collection, retrieval indexing, evidence Q&A and observed contributors) and runs C's pinned dependency-cruiser analyzer on the exact-SHA checkout. Structural dependencies and source-backed `IMPORTS` edges are stored before the snapshot is published; missing analyzer coverage remains visible in snapshot coverage and warnings. The API composes C's deterministic impact service and a manual PR-analysis run service over the indexed snapshot. The automatic PR check is the separate read-only `.github/workflows/pr-impact.yml` workflow. Use only an isolated development database. PostgreSQL migrations are checksum-verified and forward-only.
 
 For installations with a corporate/system TLS root, Node can use the operating system certificate store with `NODE_USE_SYSTEM_CA=1`; do not disable certificate verification. Configure GitHub/model tokens only in the server environment. `DOMINO_GITHUB_TOKEN` is optional for public imports but avoids the much lower anonymous GitHub rate limit.
+
+Optional function/method evidence enrichment is available through pinned Codebase Memory MCP 0.12.1. Run `npm run setup:cbm` on Windows x64 and follow [the setup and acceptance record](docs/CODE_INTELLIGENCE.md). It is disabled by default, needs no embeddings or extra model calls, and retains baseline ingestion if the native engine is unavailable. Restart the worker and reindex to enrich a new snapshot.
 
 `docker-compose.yml` and `Dockerfile` provide a local PostgreSQL/API/worker layout. Copy `.env.example` to `.env` and `.env.postgres.example` to `.env.postgres`; set the same URL-safe database password in the PostgreSQL file and `DATABASE_URL`, and set a long random `DOMINO_API_TOKEN`. Then run `docker compose up --build`. The container API requires `Authorization: Bearer <token>`; set the same `DOMINO_API_TOKEN` in the shell that runs the Vite dev server so its `/api` proxy adds the header without exposing the token to the browser. A production static host needs an equivalent server-side reverse proxy. Compose has not been tested on this machine because Docker is unavailable.
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runHistoryImport } from "../pipeline.ts";
+import { runHistoryImport, type HistoryImportDeps } from "../pipeline.ts";
 import {
   createTestStore,
   openTestStore,
@@ -29,6 +29,7 @@ import type {
   GitIdentity,
 } from "../../../../../../packages/core/history/src/types.ts";
 import { HistoryError } from "../../../../../../packages/core/history/src/errors.ts";
+import { symbolEvidence } from "../../../../../../packages/code-intelligence/src/cbm.ts";
 
 const MERGE_SHA = "d631ea87f49443c4c8dbf84fd79bf600d11a5fac";
 const FAIL_SHA = "f".repeat(40);
@@ -169,6 +170,7 @@ async function runPipeline(input: {
   snapshotId?: string;
   signal?: AbortSignal;
   directory: string;
+  codeIntelligence?: HistoryImportDeps["codeIntelligence"];
   progress?: (event: { phase: string; message: string }) => void;
 }) {
   return await runHistoryImport(
@@ -211,6 +213,7 @@ async function runPipeline(input: {
       analyzer:
         input.analyzer ??
         (async () => gitAnalysis()),
+      ...(input.codeIntelligence ? { codeIntelligence: input.codeIntelligence } : {}),
       ...(input.signal === undefined ? {} : { signal: input.signal }),
       ...(input.progress === undefined
         ? {}
@@ -382,6 +385,65 @@ test("marks a snapshot failed when Git analysis fails", async () => {
     await testStore.close();
     fs.rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});
+
+test("optional engine failure preserves baseline evidence and discloses failed coverage", async () => {
+  const directory = createFixtureDirectory();
+  const testStore = await createTestStore();
+  try {
+    const result = await runPipeline({ store: testStore.store, directory, codeIntelligence: async () => { throw new Error("engine outage"); } });
+    assert.equal(result.snapshot.status, "partial");
+    assert.equal(result.snapshot.coverage.sources.codeIntelligence?.status, "failed");
+    assert.ok(result.counts.evidenceChunks > 5);
+    assert.ok(result.warnings.some((warning) => warning.includes("baseline history and dependency analysis were retained")));
+  } finally {
+    await testStore.close();
+    if (path.dirname(directory) !== os.tmpdir() || !path.basename(directory).startsWith("domino-")) throw new Error("Unexpected fixture directory");
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("optional symbol evidence is published alongside baseline evidence and stays searchable", async () => {
+  const directory = createFixtureDirectory();
+  const testStore = await createTestStore();
+  try {
+    const result = await runPipeline({ store: testStore.store, directory, codeIntelligence: async (input) => ({
+      chunks: await symbolEvidence({ ...input, locations: [{ path: "index.js", name: "Queue.drain", start: 1, end: 3 }] }),
+      capHit: false, warnings: ["Bounded optional symbol source evidence"],
+    }) });
+    assert.equal(result.snapshot.coverage.sources.codeIntelligence?.items, 1);
+    assert.equal(result.snapshot.coverage.sources.codeIntelligence?.capHit, false);
+    const symbols = await testStore.client.query<{ body: string; revision: string }>("SELECT body,revision FROM evidence_documents WHERE snapshot_id=$1 AND source_kind='code_symbol'", [result.snapshot.id]);
+    assert.equal(symbols.rows.length, 1);
+    assert.match(symbols.rows[0].body, /drain/);
+    assert.equal(symbols.rows[0].revision, MERGE_SHA);
+    const matches = await testStore.store.searchEvidence({ repoId: result.repository.id, snapshotId: result.snapshot.id, query: "drain", limit: 50 });
+    assert.ok(matches.some((row) => row.sourceKind === "code_symbol"));
+    const baseline = await testStore.client.query<{ count: string | number }>("SELECT count(*) AS count FROM evidence_documents WHERE snapshot_id=$1 AND source_kind<>'code_symbol'", [result.snapshot.id]);
+    assert.ok(Number(baseline.rows[0].count) > 5);
+  } finally {
+    await testStore.close();
+    if (path.dirname(directory) !== os.tmpdir() || !path.basename(directory).startsWith("domino-")) throw new Error("Unexpected fixture directory");
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("cancellation during optional analysis cannot publish a fallback snapshot", async () => {
+  const directory = createFixtureDirectory();
+  const testStore = await createTestStore();
+  const controller = new AbortController();
+  try {
+    await assert.rejects(runPipeline({ store: testStore.store, directory, signal: controller.signal, codeIntelligence: async () => {
+      controller.abort();
+      throw new Error("engine aborted");
+    } }), (error: unknown) => error instanceof HistoryError && error.code === "COLLECTION_CANCELLED");
+    const snapshots = await testStore.client.query<{ status: string }>("SELECT status FROM index_snapshots");
+    assert.deepEqual(snapshots.rows.map((row) => row.status), ["cancelled"]);
+  } finally {
+    await testStore.close();
+    if (path.dirname(directory) !== os.tmpdir() || !path.basename(directory).startsWith("domino-")) throw new Error("Unexpected fixture directory");
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });
 

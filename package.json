@@ -9,6 +9,7 @@
     "apps/api",
     "apps/worker",
     "packages/contracts",
+    "packages/code-intelligence",
     "packages/database",
     "packages/core/evidence",
     "packages/core/history",
@@ -21,6 +22,7 @@
     "packages/retrieval"
   ],
   "scripts": {
+    "setup:cbm": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/setup-cbm.ps1",
     "dev:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",
     "dev:worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/main.ts",
     "start:api": "node --env-file-if-exists=.env --import tsx apps/api/src/main.ts",

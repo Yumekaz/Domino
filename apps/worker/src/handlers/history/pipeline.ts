@@ -10,6 +10,7 @@ import type {
   GitHistoryAnalysis,
   HistoryProgressEvent,
   RepositoryRecord,
+  EntityRecord,
   SnapshotRecord,
 } from "../../../../../packages/core/history/src/types.ts";
 import type { HistoryStore } from "../../../../../packages/core/history/src/ports.ts";
@@ -138,6 +139,14 @@ export interface HistoryImportDeps {
   checkoutFactory?: CheckoutFactory;
   analyzer?: HistoryAnalyzer;
   structural?: StructuralAnalysisHook;
+  codeIntelligence?: (input: {
+    repository: RepositoryRecord;
+    snapshotId: string;
+    headSha: string;
+    checkout: CheckoutHandle;
+    entities: readonly EntityRecord[];
+    signal?: AbortSignal;
+  }) => Promise<{ chunks: EvidenceChunkRecord[]; warnings: string[]; capHit: boolean }>;
   progress?: (event: HistoryProgressEvent) => void | Promise<void>;
   signal?: AbortSignal;
   gitBinary?: string;
@@ -415,6 +424,35 @@ export async function runHistoryImport(
       }
     }
 
+    let codeIntelligence: { status: "partial" | "failed"; items: number; warnings: string[]; capHit: boolean } | undefined;
+    if (deps.codeIntelligence) {
+      await report("indexing_retrieval", "Extracting optional symbol source evidence");
+      try {
+        const extra = await deps.codeIntelligence({
+          repository, snapshotId: baseSnapshot.id, headSha, checkout, entities: graph.entities, signal,
+        });
+        const remaining = Math.max(0, indexing.maxEvidenceChunks - chunkResult.chunks.length);
+        chunkResult.chunks.push(...extra.chunks.slice(0, remaining));
+        chunkResult.warnings.push(...extra.warnings);
+        codeIntelligence = {
+          status: "partial",
+          items: Math.min(extra.chunks.length, remaining),
+          warnings: extra.warnings,
+          capHit: extra.capHit || extra.chunks.length > remaining,
+        };
+        if (extra.chunks.length > remaining) {
+          chunkResult.capHit = true;
+          chunkResult.warnings.push("Optional code intelligence reached the shared evidence chunk limit.");
+        }
+      } catch {
+        const warning = "Optional code intelligence was unavailable; baseline history and dependency analysis were retained.";
+        chunkResult.warnings.push(warning);
+        codeIntelligence = { status: "failed", items: 0, warnings: [warning], capHit: false };
+      }
+    }
+    if (signal?.aborted) {
+      throw new HistoryError("COLLECTION_CANCELLED", "History import was cancelled before publication", { recoverable: true });
+    }
     const coverage = finalizeCoverage({
       githubCoverage: github.coverage,
       git,
@@ -422,6 +460,7 @@ export async function runHistoryImport(
       dataset,
       coChangeOptions,
       structural,
+      codeIntelligence,
       warnings: [
         ...github.warnings,
         ...graph.warnings,
@@ -813,6 +852,7 @@ function finalizeCoverage(input: {
   dataset: CoChangeDataset;
   coChangeOptions: HistoryCoChangeOptions;
   structural: StructuralAnalysisResult | null;
+  codeIntelligence?: { status: "partial" | "failed"; items: number; warnings: string[]; capHit: boolean };
   warnings: string[];
 }): { report: SnapshotRecord["coverage"]; builder: CoverageBuilder } {
   const limits: Record<string, number | string | boolean | null> = {
@@ -844,6 +884,11 @@ function finalizeCoverage(input: {
     structuralExcludedModules: input.structural?.excludedModules ?? 0,
   };
   const builder = new CoverageBuilder(limits);
+  if (input.codeIntelligence) {
+    builder.start("codeIntelligence");
+    builder.update("codeIntelligence", { status: input.codeIntelligence.status, items: input.codeIntelligence.items, pagesFetched: 0, capHit: input.codeIntelligence.capHit });
+    for (const warning of input.codeIntelligence.warnings) builder.update("codeIntelligence", { warning });
+  }
   for (const [source, coverage] of Object.entries(input.githubCoverage.sources) as Array<
     [keyof typeof input.githubCoverage.sources, NonNullable<(typeof input.githubCoverage.sources)[keyof typeof input.githubCoverage.sources]>]
   >) {

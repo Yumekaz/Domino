@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 import { PgBoss } from "pg-boss";
 import { createPool } from "../../../packages/database/src/index.ts";
 import {
@@ -9,6 +10,7 @@ import {
 import { scopeHistoryStore } from "../../../packages/database/src/history-port.ts";
 import { historyJobSchema } from "../../../packages/contracts/src/index.ts";
 import { createStructuralAnalysis } from "./structural.ts";
+import { analyzeCodeSymbols } from "../../../packages/code-intelligence/src/cbm.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
@@ -131,6 +133,17 @@ await boss.work<HistoryJobPayload>(
           repoId: job.repoId,
           githubId: job.githubId,
         }),
+        ...(process.env.DOMINO_CODE_INTELLIGENCE === "cbm"
+          ? {
+              codeIntelligence: (
+                input: Omit<Parameters<typeof analyzeCodeSymbols>[0], "binary" | "cacheDir" | "run">,
+              ) => analyzeCodeSymbols({
+                ...input,
+                binary: process.env.DOMINO_CBM_BINARY ?? "",
+                cacheDir: process.env.DOMINO_CBM_CACHE_DIR || resolve(homedir(), ".domino-cbm"),
+              }),
+            }
+          : {}),
       });
       try {
         await handler.handle(

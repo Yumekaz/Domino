@@ -69,7 +69,8 @@ export type SourceName =
   | "timelines"
   | "gitHistory"
   | "retrieval"
-  | "structural";
+  | "structural"
+  | "codeIntelligence";
 
 export type CoverageStatus = "complete" | "partial" | "failed" | "not_attempted" | "cancelled";
 
