@@ -39,6 +39,32 @@ describe('Evidence is never substituted', () => {
       code: 'CONNECTION_UNAVAILABLE',
     });
   });
+  it('aborts an obsolete read instead of substituting a result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            );
+          }),
+      ),
+    );
+    const controller = new AbortController();
+    const read = api.repository('repo', controller.signal);
+    controller.abort();
+    await expect(read).rejects.toMatchObject({ name: 'AbortError' });
+  });
+  it('maps the request time budget to an explicit timeout error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new DOMException('Request timed out', 'TimeoutError')),
+    );
+    await expect(api.repository('repo')).rejects.toMatchObject({ code: 'TIME_BUDGET_EXCEEDED' });
+  });
   it('rejects a malformed success response', async () => {
     vi.stubGlobal(
       'fetch',

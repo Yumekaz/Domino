@@ -1,0 +1,208 @@
+# Domino demo plan
+
+Status: **integration draft, 31 October 2026.** This plan is for the existing frontend on
+`codex/integration-d`, based on `codex/backend-integration` (`f628461`, tree equivalent to frontend
+freeze `0716669e7140f5a722ad5208e6bde2a63ac3e903`). Backend services and shared contracts are not
+present on the integration branch yet, so every live step below is a required gate, not a completed
+result. Fixture-mode UI exercises are labelled synthetic and are never evidence of ingestion,
+analysis, authorship or Actions output.
+
+- Repository: https://github.com/Yumekaz/Domino
+- Role / owner: D (frontend integration and final acceptance)
+- Frontend freeze: `0716669e7140f5a722ad5208e6bde2a63ac3e903`; verified documentation at
+  `docs/frontend/final/VISUAL_FREEZE.md`.
+- Shared contracts: `handoffs/CONTRACT_GATE.md` remains OPEN; `packages/contracts` is not on the
+  integration branch. `codex/backend-b` contains unmerged history/retrieval work, but no accepted
+  contract package is available to the frontend.
+- Services: no `apps/api`, worker, PostgreSQL or queue composition on the integration branch.
+- Mobile: deferred by the user; this plan covers desktop acceptance only.
+
+## Rules for this demo
+
+1. Backend values are authoritative. The browser never computes impact, risk, contributor counts,
+   claim support, graph expansion or repository-wide totals.
+2. Fixture mode is `import.meta.env.DEV && VITE_DATA_MODE === 'fixture'`. It must never be enabled in
+   production or used as an error fallback.
+3. Every indexed or analyzed result displays its revision and coverage. Stale, partial and
+   unavailable states remain visible.
+4. No secrets in `VITE_` variables, URLs, browser storage, screenshots or logs.
+5. Evidence records the data mode, viewport, browser, revision and actual input. Unperformed checks
+   are reported as NOT PERFORMED.
+
+## Prerequisites and setup verification
+
+Node.js 22.12+ and npm are required.
+
+```powershell
+cd apps/web
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run verify:production
+```
+
+Expected result on this branch: typecheck, lint, **40 Vitest tests across 5 files**, production
+build and fixture-exclusion verification pass. `npm test` covers malformed responses, transport
+errors, obsolete-read cancellation, the request timeout map, citation membership, URL restrictions,
+fixture boundaries and returned graph integrity. The build prints the disclosed lazy Three.js chunk
+warning (~568 kB minified); do not raise the threshold to hide it.
+
+Start the real stack only after A publishes exact startup instructions:
+
+```powershell
+# Live UI (proxies /api to 127.0.0.1:3000 by default)
+npm run dev
+
+# Synthetic UI exercise only, never for acceptance
+npm run dev:fixtures -- --port 5174
+
+# Production preview after a build
+npm run preview
+```
+
+Verify the live API through the same path the browser uses:
+
+```powershell
+curl.exe http://127.0.0.1:5173/api/v1/health
+```
+
+A 502/non-JSON response means the API is not reachable and no live step can pass. The frontend shows
+an explicit error with retry and does not load fixtures.
+
+## Demo data and provenance
+
+Use one public JS/TS repository agreed with A/B/C, or a legitimately pre-indexed public snapshot
+with its disclosed SHA and indexing date. Record:
+
+- repository ID and canonical URL
+- indexed branch and full head SHA
+- indexing completion time and per-source coverage
+- whether history or files were capped, and which categories are partial
+- the exact issue/PR/commit/file used for the connected-memory story
+
+A controlled public demo repository with genuine commits and PRs is acceptable when labelled.
+Fixture data from `development-fixture` is never acceptable demo evidence.
+
+## Runbook: seven capabilities
+
+Current live status: **BLOCKED** until the named backend owner provides the service and A publishes
+shared contracts.
+
+### M1 — History collection (owner A/B)
+
+1. Paste a public GitHub URL into the existing connection form on `/app` or the launch doorway.
+2. Follow the returned job/status and confirm actual phase progression, not a simulated percentage.
+3. Inspect the published snapshot: full SHA, branch, completion time and per-source coverage.
+4. Exercise a reindex and a partial/failed/private/rate-limited response.
+
+Evidence: repository ID, job IDs, status transitions, coverage values, SHA, refresh persistence.
+
+### M2 — Connected memory (owner B/A)
+
+1. Search a real record from `/app/repositories/:repoId/history`; paginate where available.
+2. Open a genuine issue → PR → commit → file chain.
+3. Inspect sources/neighbors, then open the original GitHub source links.
+4. Confirm selection continuity into graph and Q&A routes.
+
+Evidence: entity IDs and URLs for each hop; pagination cursors; source locator/excerpt.
+
+### M3 — Evidence Q&A (owner B/A)
+
+1. Ask a supported design-rationale question.
+2. Open each claim's cited source; confirm the excerpt and locator support the claim.
+3. Ask a genuinely unsupported question; expect an explicit not-found answer with no claims.
+4. With B/A, exercise a malformed/dangling citation and a model outage.
+
+Evidence: supported/not_found/partial/outage states, claim-to-source mapping, server validation
+result. Client citation membership alone is not semantic proof.
+
+### M4 — Change impact (owner C/A)
+
+1. Submit one or more repository-relative changed files (or an agreed proposed diff).
+2. Verify direct and transitive paths, hop depth, analyzer signal, evidence line and warnings.
+3. Select each returned signal independently, including structural and historical co-change entries
+   for the same file.
+4. Confirm the declared snapshot SHA and stale/partial behavior.
+
+Evidence: returned paths/file IDs, evidence locators, warnings, analyzer revision. The frontend must
+not perform traversal or invent a missing path.
+
+### B1 — Connected-memory graph (owner A + existing frontend)
+
+1. Open a bounded neighborhood from a real entity at depth 1–3.
+2. Verify every visible node/edge exists in the API response and every edge opens source proof.
+3. Apply the finalized kind/verification/date filters and expansion; confirm truncation/warnings.
+4. Select a record, traverse to a changed file, and open the exact GitHub source.
+
+Evidence: API response IDs versus visible graph IDs, expansion bounds, source URLs.
+
+### B3 — Knowledge at risk (owner B/A)
+
+1. Open `/risk` for a real snapshot; record observed contributor counts, history window and caveats.
+2. Open a file's underlying contribution sources.
+3. In the controlled repository, have a genuine second contributor modify the file, reindex, and
+   confirm the observed-author classification changes.
+
+Evidence: before/after contributor counts, commits/authors, window, alias/truncation caveats.
+
+### B2 — Automatic PR check (owner C/A)
+
+1. Open or update a PR in the controlled repository to trigger the read-only Actions run.
+2. Open the run on `/pr`, record PR number, event, base SHA, head SHA, result revision and the actual
+   Actions summary URL.
+3. Add a commit to the PR head, wait for the synchronized run, and verify a different head SHA and a
+   refreshed result.
+
+Evidence: two real head SHAs, two Actions run URLs, changed inputs/results. Do not imply a PR comment
+exists unless one was actually posted.
+
+## Failure and truthfulness rehearsal
+
+Rehearse and capture each state with its machine-readable error code:
+
+- private/invalid repository
+- GitHub rate limit or partial import
+- unsupported language/analyzer gap
+- stale snapshot versus newer PR head
+- unsupported Q&A / no supporting history
+- invalid or dangling citation (withheld answer)
+- model outage while search/graph/impact remain usable
+- failed/cancelled analysis run; polling must terminate
+- API unavailable: the UI must show a real connection/proxy error with retry and must not load
+  fixtures
+
+## Random source inspection
+
+During the demo, an audience member selects an arbitrary indexed file, issue or PR. Open its source
+proof and original GitHub URL. If no evidence or locator is returned, show the explicit unavailable
+state. Never substitute a nearby record.
+
+## Evidence capture
+
+- Desktop screenshots at 1366×768 and 1440×1000, with the data-mode banner visible when synthetic.
+- Record browser version, viewport, revision, input and actual response identifiers.
+- Store sanitized acceptance evidence outside committed source; distinguish fixture, live, desktop,
+  mobile, screenshot and performance results.
+- Performance results must name the environment and be foreground. No production motion or
+  graph-scale result has been accepted for this branch yet; the D-09 gate remains open.
+- Cross-browser and assistive-technology checks must be reported as PASS, FAIL, BLOCKED or NOT
+  PERFORMED, not inferred from a screenshot.
+
+## Known blockers and limitations
+
+| Area | State | Owner / next action |
+| --- | --- | --- |
+| Shared runtime contracts | BLOCKED; gate open | A publishes `packages/contracts`, route table, enums, bounds and error envelope |
+| Live import, search, Q&A, impact, risk, PR run | BLOCKED; no API/worker/DB on integration | A/B/C provide services and demo data |
+| Integration branch content | Only frontend; `codex/backend-b` unmerged | A coordinates backend integration after contract acceptance |
+| Graph-scale acceptance | NOT PERFORMED; no real graph | A/B provide representative bounded neighborhoods |
+| Deployment/CORS/origin | BLOCKED | A confirms origin/proxy/CORS and deployment |
+| Mobile | Deferred | User priority decision |
+
+## Pre-demo go/no-go
+
+A demo is ready only when: shared contracts are accepted and bound; every live step above has real
+IDs/URLs/SHAs; unsupported and failure states have been rehearsed; the production build passes
+`verify:production`; and no fixture or invented value appears in the acceptance path.
