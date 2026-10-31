@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -133,6 +133,7 @@ export function EntityInspector({
       panel.current?.scrollIntoView({ block: 'start' });
   }, [entityId]);
   const { repoId, repository, setFocus, path } = useRepo();
+  const location = useLocation();
   const query = useQuery({
     queryKey: ['entity', repoId, repository.snapshot?.id, entityId],
     queryFn: ({ signal }) => api.entity(repoId, entityId, signal, repository.snapshot?.id),
@@ -181,12 +182,14 @@ export function EntityInspector({
           >
             <Sparkles size={16} /> Ask about this record
           </Link>
-          <Link
-            className="button button-secondary"
-            to={`${path('history').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}
-          >
-            <History size={16} /> Open connected history
-          </Link>
+          {location.pathname !== path('history').split('?')[0] && (
+            <Link
+              className="button button-secondary"
+              to={`${path('history').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}
+            >
+              <History size={16} /> Open connected history
+            </Link>
+          )}
         </>
       )}
     </aside>
