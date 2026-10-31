@@ -1,0 +1,52 @@
+# Domino API and integration contracts
+
+This document describes the **proposed role A contract** in `packages/contracts/src/index.ts`. It is available for B/C/D review; it is not a claim that their review or all integration gates have completed. The master specification remains authoritative. The existing web decoder is provisional and has not yet been replaced by D.
+
+## Runtime and errors
+
+All routes are under `/api/v1`. Inputs and emitted payloads use shared Zod validation. IDs are UUIDs, revisions are full lowercase 40-character SHAs, timestamps are ISO 8601 and all repository paths are normalized relative paths. Errors use `{code, message, retryable, requestId?}` with an appropriate HTTP status. Secrets never belong in `VITE_` variables.
+
+The server binds to `127.0.0.1:3000` by default. A non-loopback bind requires `DOMINO_API_TOKEN`; provide it in a Bearer authorization header. Browser origins must match `DOMINO_ALLOWED_ORIGINS` (defaults include localhost Vite ports 5173/5174). Current rate limiting is an in-memory 120 requests/minute/client protection per API process, not a distributed quota. The API body limit is 300 KB; repository responses from GitHub are capped at 1 MB. Requests use an exact `api.github.com` host, verified TLS, no redirects and a 15-second timeout.
+
+`GET /health` reports database and queue status. It does not attest that a worker is running. API and worker startup require migrated PostgreSQL. `history.import` jobs are validated on both ends against their stored job record. App-job insertion and pg-boss enqueue occur in the same database transaction. Job reads reconcile a terminal queue state after a worker interruption; the last published snapshot remains available. An active import for a repository returns the existing job rather than starting a competing import. Reindex creates a fresh snapshot UUID even for an unchanged SHA; only ready/partial snapshots are published.
+
+## Endpoint inventory
+
+| Method and suffix                              | Request                                                                                                                 | Result / implementation state                                                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| GET `/health`                                  | —                                                                                                                       | `{status,database,queue}`; 503 when a dependency is unavailable                                           |
+| POST `/repositories`                           | `{url}`                                                                                                                 | `{repoId,jobId}` with 202 after public GitHub identity and branch SHA are checked                         |
+| GET `/repositories/:repoId`                    | —                                                                                                                       | Identity plus latest published snapshot or `null`                                                         |
+| GET `/repositories/:repoId/jobs/:jobId`        | —                                                                                                                       | Actual status/phase/warnings; progress only if truly measured                                             |
+| POST `/repositories/:repoId/reindex`           | `{}`                                                                                                                    | `{repoId,jobId}`; verifies GitHub identity again                                                          |
+| GET `/repositories/:repoId/search`             | `q`, `limit` 1–100, optional `cursor`                                                                                   | Snapshot-bound, query-bound cursor; `{items,nextCursor,snapshotSha}`                                      |
+| GET `/repositories/:repoId/entities/:entityId` | Optional `snapshotId`                                                                                                   | Entity, sources, bounded neighbors/edges, revision and warnings; defaults to latest published snapshot    |
+| GET `/repositories/:repoId/graph`              | `snapshotId`, `entityId`, `depth` 1–3; repeated `nodeKinds`, `relationshipKinds`, `verification`; `includeInferred=true | false`; optional ISO `from`/`to`                                                                          | At most 200 nodes/400 edges, source provenance, SHA and truncation. Root stays visible when kind filters are set. Missing endpoints are omitted with warning. |
+| POST `/repositories/:repoId/ask`               | `{question,snapshotId?,focusEntityId?}`                                                                                 | Source-backed claims or `not_found` / `unavailable`; B service required                                   |
+| POST `/repositories/:repoId/impact`            | `{snapshotId,changedFiles?,proposedDiff?,maxDepth?}`; exactly one change input                                          | Structural paths or co-change/unknown signals; returns `ANALYZER_UNSUPPORTED` until C's port is connected |
+| GET `/repositories/:repoId/knowledge-risk`     | `snapshotId`, `limit` 1–100, optional `cursor`                                                                          | Observed counts, source links, history window/caveats and next cursor; B service required                 |
+| POST `/repositories/:repoId/pr-check`          | `{prNumber}`                                                                                                            | `{runId}` with 202 when C's port is connected; otherwise `ANALYZER_UNSUPPORTED`                           |
+| GET `/repositories/:repoId/analysis/:runId`    | —                                                                                                                       | Validated pending status or persisted report, 404 if absent; 503 if revision metadata is unavailable      |
+
+No repository-list or run-list endpoint is introduced. Search cursors bind the snapshot, query and last record. Risk cursors bind the snapshot and offset. Invalid/stale cursors are rejected instead of mixing revisions.
+
+## Agreed vocabulary proposed for review
+
+- Snapshot: `pending`, `ready`, `partial`, `failed`, `cancelled`. Job: `queued`, `running`, `ready`, `partial`, `failed`, `cancelled`. Analysis run: `queued`, `running`, `completed`, `partial`, `failed`, `cancelled`.
+- Entity types and relationship types match master 6.1/6.2. Edge verification is `observed`, `derived`, or `inferred`; inferred edges are excluded by default. `observed` static imports are observations at the named SHA, not runtime guarantees.
+- Q&A supports `supported`, `partial`, `not_found`, and `unavailable`. B's `interpretation` is explicitly mapped to wire value `inferred`. `unavailable` has a null answer, an error code and no claims. Shared validation checks citation membership, while B's server-side validator is responsible for source/claim support.
+- Impact signals are `static_reverse_dependency`, `historically_coupled`, or `unknown`. A structural path starts at the affected file, ends at a changed file and contains depth + 1 entries. A historical association requires real `sampleSize`, `targetCommits`, `windowFrom` and `windowTo`; it does not become an import path. Truncation and limitations are explicit.
+- Risk history dates and last edit may be null. Contributor counts represent observed history only; `commitCountIsLowerBound` exposes capped commit samples. Source entries are actual stored Git change edges. The response is paginated and never labels a multi-author file safe.
+- PR analysis must identify full base/head SHAs, event, run status, freshness and real URLs. C must agree the base/head policy, event authentication, idempotency key and service implementation before marking that capability complete.
+
+## B and C service boundaries
+
+A's worker loads B's reviewed `createHistoryImportHandler`, `PostgresHistoryStore`, `PgSqlClient` and Octokit adapter at runtime after B is integrated. It passes explicit `repoId`, `snapshotId`, GitHub ID, URL, branch and exact SHA. The A-owned `scopeHistoryStore` adapter stores immutable per-snapshot entity versions and uses them for source/graph reads and co-change observations. Identical content-addressed evidence IDs are allowed in different snapshots. B's `HistoryStore` remains its domain interface; A owns the migration and adapter.
+
+`ImpactServicePort` and `PrCheckServicePort` in shared contracts are the initial C service interfaces; API composition accepts them as dependencies. `replacePendingDependencies` and `findReverseDependencies` in `packages/database` provide bounded, repository/snapshot-scoped structural storage. Replacement is transactional and refuses published snapshots. They are not wired to a real C implementation yet. The worker currently publishes history as **partial**, with `structural: not_attempted`, because no analyzer has run. C must add its trusted analyzer before snapshot publication, persist its observations and provenance, and remove that partial guard only when structural coverage is genuinely known. C also supplies PR adapters and actual Actions evidence; an unavailable route is deliberately not a successful fixture.
+
+**Frontend coordination:** D must consume these shared schemas and accommodate `unavailable` Q&A, nullable risk dates, added source/coverage fields, typed terminal states and real co-change metadata. Current client schemas do not fully support these cases. No visual changes are made in this backend branch.
+
+## Known gates
+
+The local A+B test used B draft commit `62b1d7dfe757e760396ea85fcfc893eb9994631f`, not a merged B PR. PostgreSQL 17, pg-boss, public import, search, graph, risk, no-evidence/outage Q&A and same-SHA reindex were exercised. The second import reached GitHub's unauthenticated rate limit and was partial. A real model answer, C's impact engine, PR Actions, frontend binding, production deployment and team review remain unverified. Docker Compose is supplied but has not been run on a Docker-capable host.
