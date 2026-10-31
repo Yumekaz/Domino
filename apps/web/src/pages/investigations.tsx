@@ -304,7 +304,7 @@ export function AskPage() {
             <textarea
               id="question"
               value={question}
-              maxLength={4000}
+              maxLength={2000}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="Why was this code written this way?"
               rows={3}
@@ -339,7 +339,13 @@ export function AskPage() {
             <article className="answer-report" aria-live="polite">
               <div className="answer-heading">
                 <Eyebrow>THE REASONING / INSPECTABLE CLAIMS</Eyebrow>
-                <Badge tone={ask.data.status === 'not_found' ? 'orange' : 'blue'}>
+                <Badge
+                  tone={
+                    ask.data.status === 'not_found' || ask.data.status === 'unavailable'
+                      ? 'orange'
+                      : 'blue'
+                  }
+                >
                   {ask.data.status.replaceAll('_', ' ')}
                 </Badge>
               </div>
@@ -353,8 +359,24 @@ export function AskPage() {
                     'This answer refers to a different revision from the active snapshot. Refresh or inspect its sources before relying on it.',
                   ]}
                 />
-              )}{' '}
-              {!grounded ? (
+              )}
+              <Warnings warnings={ask.data.warnings} />
+              {ask.data.status === 'unavailable' ? (
+                <div className="state-box" role="status">
+                  <HelpCircle size={26} strokeWidth={1.4} />
+                  <h3>Generated synthesis is unavailable.</h3>
+                  <p>
+                    {ask.data.unknowns[0] ||
+                      'The model provider could not produce a validated answer. No answer was substituted.'}
+                  </p>
+                  {ask.data.errorCode && <code>Provider state: {ask.data.errorCode}</code>}
+                  <p>
+                    {ask.data.searchAvailable
+                      ? 'Indexed search, original sources, the graph and deterministic impact remain available.'
+                      : 'Indexed search is also unavailable for this snapshot. Inspect repository coverage and retry.'}
+                  </p>
+                </div>
+              ) : !grounded ? (
                 <Warnings
                   warnings={[
                     'The response contains unsupported citation references. Its answer and claims have been withheld.',
@@ -365,7 +387,7 @@ export function AskPage() {
                   <p className="answer-summary">
                     {ask.data.status === 'not_found'
                       ? 'No supporting project history found.'
-                      : ask.data.answer}
+                      : ask.data.answer ?? 'No answer text was returned.'}
                   </p>
                   <div className="claim-list">
                     {ask.data.claims.map((claim, i) => (
@@ -556,16 +578,23 @@ export function ImpactResults({ result }: { result: Impact }) {
                   <div className="cochange-scope">
                     <div>
                       <span>SAMPLE SIZE</span>
-                      <strong>Not available</strong>
+                      <strong>
+                        {active.cochange
+                          ? `${active.cochange.sampleSize} of ${active.cochange.targetCommits} indexed commits`
+                          : 'Not available'}
+                      </strong>
                     </div>
                     <div>
                       <span>OBSERVATION WINDOW</span>
-                      <strong>Not available</strong>
+                      <strong>
+                        {active.cochange
+                          ? `${active.cochange.windowFrom ?? 'not supplied'} → ${active.cochange.windowTo ?? 'not supplied'}`
+                          : 'Not available'}
+                      </strong>
                     </div>
                     <p>
-                      This view has no reported sample/window metadata for the association.
                       Co-change is context for investigation; it does not establish an import
-                      relationship.
+                      relationship. The sample and window describe only the indexed history.
                     </p>
                   </div>
                 )}
@@ -798,11 +827,18 @@ export function ImpactPage() {
 export function RiskPage() {
   const { repoId, repository, path } = useRepo();
   const [singleOnly, setSingleOnly] = useState(false);
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ['risk', repoId, repository.snapshot?.id],
-    queryFn: ({ signal }) => api.risk(repoId, repository.snapshot!.id, signal),
+    queryFn: ({ pageParam, signal }) =>
+      api.risk(repoId, repository.snapshot!.id, pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: !!repository.snapshot,
   });
+  const pages = query.data?.pages ?? [];
+  const first = pages[0];
+  const files = pages.flatMap((page) => page.files);
+  const warnings = [...new Set(pages.flatMap((page) => page.warnings))];
   return (
     <>
       <PageTitle
@@ -837,16 +873,16 @@ export function RiskPage() {
             <span>
               HISTORY WINDOW{' '}
               <b>
-                {query.data.historyFrom} → {query.data.historyTo}
+                {first?.historyFrom ?? 'not supplied'} → {first?.historyTo ?? 'not supplied'}
               </b>
             </span>
-            <Badge tone={query.data.partial ? 'orange' : 'blue'}>
-              {query.data.partial ? 'Partial history' : 'Reported history complete'}
+            <Badge tone={first?.partial ? 'orange' : 'blue'}>
+              {first?.partial ? 'Partial history' : 'Reported history complete'}
             </Badge>
-            <Sha value={query.data.snapshotSha} />
+            <Sha value={first?.snapshotSha} />
           </div>
-          <Warnings warnings={query.data.warnings} />
-          {query.data.snapshotSha !== repository.snapshot?.headSha && (
+          <Warnings warnings={warnings} />
+          {first?.snapshotSha !== repository.snapshot?.headSha && (
             <Warnings
               warnings={[
                 'Contribution results refer to a different snapshot. Refresh before relying on this view.',
@@ -865,9 +901,18 @@ export function RiskPage() {
             </label>
           </div>
           <KnowledgeLedger
-            files={query.data.files.filter((file) => !singleOnly || file.observedAuthors === 1)}
+            files={files.filter((file) => !singleOnly || file.observedAuthors === 1)}
             historyPath={path('history').split('?')[0]}
           />
+          {query.hasNextPage && (
+            <Button
+              variant="secondary"
+              disabled={query.isFetchingNextPage}
+              onClick={() => query.fetchNextPage()}
+            >
+              {query.isFetchingNextPage ? 'Loading…' : 'Load more observed files'}
+            </Button>
+          )}
         </>
       )}
     </>

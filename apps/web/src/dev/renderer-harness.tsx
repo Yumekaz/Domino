@@ -7,6 +7,7 @@ import type { Graph } from '../api/schemas';
 import '../fonts.css';
 import '../styles.css';
 import '../launch.css';
+import { fixtureAuthId, fixtureRepositoryId } from './fixtureIds';
 import '../desktop-northstar.css';
 import './renderer-harness.css';
 
@@ -34,11 +35,13 @@ function RendererHarness() {
         id: `harness-edge-${index}`,
         source: `harness-${Math.floor(index / 2)}`,
         target: `harness-${index + 1}`,
-        kind: 'HARNESS_LINK',
-        verification: 'observed',
+        kind: 'IMPORTS' as const,
+        verification: 'observed' as const,
+        snapshotSha: '0'.repeat(40),
       })),
       truncated: false,
       warnings: ['RENDERER HARNESS: generated topology, not repository evidence.'],
+      snapshotSha: '0'.repeat(40),
     }),
     [count],
   );
@@ -126,7 +129,7 @@ function RendererHarness() {
           <div>
             <a
               className="harness-product-link"
-              href="/app/repositories/development-fixture/graph?focus=auth"
+              href={`/app/repositories/${fixtureRepositoryId}/graph?focus=${fixtureAuthId}`}
             >
               Open the actual Domino workspace ↗
             </a>

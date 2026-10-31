@@ -165,6 +165,16 @@ describe("snapshot-scoped HTTP APIs", () => {
     });
     expect(outside.statusCode).toBe(404);
   });
+  it("lists indexed records for an empty browse query", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/v1/repositories/${repo}/search?q=&limit=2`,
+      headers: auth,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().items.length).toBeGreaterThan(0);
+    expect(response.json().snapshotSha).toBe(newSha);
+  });
   it("paginates against a stable snapshot and fails explicitly when C is unavailable", async () => {
     const first = await app.inject({
       method: "GET",

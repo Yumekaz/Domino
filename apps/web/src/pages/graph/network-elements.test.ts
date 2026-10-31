@@ -7,9 +7,19 @@ const graph: Graph = {
     { id: 'b', kind: 'File', title: 'session.ts' },
     { id: 'c', kind: 'Document', title: 'Notes' },
   ],
-  edges: [{ id: 'import', source: 'b', target: 'a', kind: 'IMPORTS', verification: 'observed' }],
+  edges: [
+    {
+      id: 'import',
+      source: 'b',
+      target: 'a',
+      kind: 'IMPORTS',
+      verification: 'observed',
+      snapshotSha: '0'.repeat(40),
+    },
+  ],
   truncated: true,
   warnings: [],
+  snapshotSha: '0'.repeat(40),
 };
 describe('network presentation boundaries', () => {
   it('keeps exactly the returned records and edges', () => {

@@ -837,6 +837,18 @@
   color: #7f9bbe;
   margin-top: 18px;
 }
+.ledger-caveats {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.ledger-caveats p {
+  border-left: 2px solid #8b613e;
+  padding-left: 10px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #9fb3ce;
+}
 .ledger-provenance {
   display: grid;
   grid-template-columns: 0.55fr 1fr;

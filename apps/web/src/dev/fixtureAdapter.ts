@@ -1,86 +1,169 @@
 /** Synthetic UI exercises only. Never imported by a production build. No GitHub evidence is claimed. */
 import type { Answer, Edge, Entity, Impact, Repository } from '../api/schemas';
 import { ApiError } from '../api/client';
-export const fixtureId = 'development-fixture';
+import {
+  fixtureAuthId,
+  fixtureCommitId,
+  fixtureContributionSourceId,
+  fixtureContributorId,
+  fixtureDashboardId,
+  fixtureDocumentId,
+  fixtureIssueId,
+  fixtureJobId,
+  fixturePullRequestId,
+  fixtureRepositoryId,
+  fixtureRunId,
+  fixtureSessionId,
+  fixtureSnapshotId,
+  fixtureSourceId,
+} from './fixtureIds';
+
+export const fixtureId = fixtureRepositoryId;
 const sha = '0000000000000000000000000000000000000000';
+const at = (date: string) => `${date}T00:00:00Z`;
 const nodes: Entity[] = [
   {
-    id: 'issue',
+    id: fixtureIssueId,
     kind: 'Issue',
     title: 'Keep sessions during token refresh',
-    date: '2026-10-01',
+    date: at('2026-10-01'),
     excerpt: 'SYNTHETIC: Refreshing a token should not discard an active session.',
   },
   {
-    id: 'pr',
+    id: fixturePullRequestId,
     kind: 'PullRequest',
     title: 'Separate token refresh from session state',
-    date: '2026-10-03',
+    date: at('2026-10-03'),
     excerpt: 'SYNTHETIC: Preserve the session while the token is refreshed.',
   },
-  { id: 'commit', kind: 'Commit', title: 'Preserve active sessions', date: '2026-10-04' },
-  { id: 'auth', kind: 'File', title: 'auth.ts', path: 'src/auth.ts', date: '2026-10-04' },
-  { id: 'session', kind: 'File', title: 'session.ts', path: 'src/session.ts', date: '2026-10-04' },
   {
-    id: 'dashboard',
+    id: fixtureCommitId,
+    kind: 'Commit',
+    title: 'Preserve active sessions',
+    date: at('2026-10-04'),
+  },
+  { id: fixtureAuthId, kind: 'File', title: 'auth.ts', path: 'src/auth.ts', date: at('2026-10-04') },
+  {
+    id: fixtureSessionId,
+    kind: 'File',
+    title: 'session.ts',
+    path: 'src/session.ts',
+    date: at('2026-10-04'),
+  },
+  {
+    id: fixtureDashboardId,
     kind: 'File',
     title: 'dashboard.tsx',
     path: 'src/dashboard.tsx',
-    date: '2026-10-05',
+    date: at('2026-10-05'),
   },
-  { id: 'person', kind: 'Contributor', title: 'Fixture contributor A', date: '2026-10-03' },
-  { id: 'doc', kind: 'Document', title: 'Session design notes', date: '2026-10-06' },
+  { id: fixtureContributorId, kind: 'Contributor', title: 'Fixture contributor A', date: at('2026-10-03') },
+  { id: fixtureDocumentId, kind: 'Document', title: 'Session design notes', date: at('2026-10-06') },
 ];
-const edges: Edge[] = [
-  { id: 'e1', source: 'pr', target: 'issue', kind: 'CLOSES_ISSUE', verification: 'observed' },
-  { id: 'e2', source: 'commit', target: 'pr', kind: 'IN_PR', verification: 'observed' },
-  { id: 'e3', source: 'commit', target: 'auth', kind: 'MODIFIED', verification: 'observed' },
-  { id: 'e4', source: 'session', target: 'auth', kind: 'IMPORTS', verification: 'observed' },
-  { id: 'e5', source: 'dashboard', target: 'session', kind: 'IMPORTS', verification: 'observed' },
-  { id: 'e6', source: 'person', target: 'commit', kind: 'AUTHORED', verification: 'observed' },
-  { id: 'e7', source: 'doc', target: 'session', kind: 'DOCUMENTS', verification: 'inferred' },
+const baseEdges: Array<
+  Pick<Edge, 'id' | 'source' | 'target' | 'kind' | 'verification'>
+> = [
   {
-    id: 'e8',
-    source: 'auth',
-    target: 'dashboard',
+    id: 'f0000000-0000-4000-8000-000000000030',
+    source: fixturePullRequestId,
+    target: fixtureIssueId,
+    kind: 'CLOSES_ISSUE',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000031',
+    source: fixtureCommitId,
+    target: fixturePullRequestId,
+    kind: 'IN_PR',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000032',
+    source: fixtureCommitId,
+    target: fixtureAuthId,
+    kind: 'MODIFIED',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000033',
+    source: fixtureSessionId,
+    target: fixtureAuthId,
+    kind: 'IMPORTS',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000034',
+    source: fixtureDashboardId,
+    target: fixtureSessionId,
+    kind: 'IMPORTS',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000035',
+    source: fixtureContributorId,
+    target: fixtureCommitId,
+    kind: 'AUTHORED',
+    verification: 'observed',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000036',
+    source: fixtureDocumentId,
+    target: fixtureSessionId,
+    kind: 'DOCUMENTS',
+    verification: 'inferred',
+  },
+  {
+    id: 'f0000000-0000-4000-8000-000000000037',
+    source: fixtureAuthId,
+    target: fixtureDashboardId,
     kind: 'CO_CHANGED_WITH',
     verification: 'derived',
   },
-].map((e) => ({
-  ...e,
-  verification: e.verification as Edge['verification'],
+];
+const edges: Edge[] = baseEdges.map((edge) => ({
+  ...edge,
   snapshotSha: sha,
   extractor: 'Synthetic fixture adapter',
   evidenceExcerpt: 'Development-only relationship. Not an observation of a real repository.',
-  observedAt: '2026-10-04',
+  observedAt: at('2026-10-04'),
 }));
 const sources = [
   {
-    id: 'fixture-discussion',
+    id: fixtureSourceId,
     kind: 'pr_comment',
     locator: 'Synthetic PR discussion · no public source',
     excerpt: 'SYNTHETIC: We separate token refresh to keep active sessions intact.',
-    observedAt: '2026-10-03',
+    observedAt: at('2026-10-03'),
   },
 ];
 const repository: Repository = {
-  id: fixtureId,
+  id: fixtureRepositoryId,
   owner: 'domino-example',
   name: 'causal-lab',
   url: 'https://github.com/domino-example/causal-lab',
   snapshot: {
-    id: 'fixture-snapshot',
+    id: fixtureSnapshotId,
     headSha: sha,
     branch: 'fixture/main',
     status: 'partial',
     completedAt: '2026-10-06T10:00:00Z',
-    historyFrom: '2026-10-01',
-    historyTo: '2026-10-06',
+    historyFrom: at('2026-10-01'),
+    historyTo: at('2026-10-06'),
     coverage: [
-      { kind: 'Commits', indexed: 3, status: 'limited' },
-      { kind: 'Pull requests', indexed: 1, status: 'complete' },
-      { kind: 'Issues', indexed: 1, status: 'complete' },
-      { kind: 'Documents', indexed: 1, status: 'limited' },
+      {
+        kind: 'Commits',
+        indexed: 3,
+        status: 'partial',
+        warnings: ['Synthetic limited fixture history.'],
+      },
+      { kind: 'Pull requests', indexed: 1, status: 'complete', warnings: [] },
+      { kind: 'Issues', indexed: 1, status: 'complete', warnings: [] },
+      {
+        kind: 'Documents',
+        indexed: 1,
+        status: 'partial',
+        warnings: ['Synthetic limited fixture history.'],
+      },
     ],
     warnings: [
       'Synthetic development fixture. No repository has been indexed.',
@@ -118,6 +201,12 @@ const impact: Impact = {
       impact: 'possible',
       explanation: 'Synthetic co-change association, not an import relationship.',
       evidence: [],
+      cochange: {
+        sampleSize: 2,
+        targetCommits: 5,
+        windowFrom: at('2026-10-01'),
+        windowTo: at('2026-10-06'),
+      },
     },
     {
       file: 'src/runtime-entry.ts',
@@ -134,6 +223,7 @@ const impact: Impact = {
     'Development fixture, not a computed impact result.',
     'Runtime dependencies are outside this illustrative analysis.',
   ],
+  truncated: false,
 };
 let importedAt = 0;
 export async function fixtureRequest(path: string, init?: RequestInit): Promise<unknown> {
@@ -141,7 +231,7 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
   init?.signal?.throwIfAborted();
   const url = new URL(path, 'https://fixture.invalid');
   const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
-  if (path === '/health') return { status: 'development-fixture' };
+  if (path === '/health') return { status: 'ok', database: 'ok', queue: 'ok' };
   if (path === '/repositories' && init?.method === 'POST') {
     if (body.url !== repository.url)
       throw new ApiError(
@@ -149,11 +239,11 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
         `Fixture mode only simulates ${repository.url}. Start the live development server to import a real repository.`,
       );
     importedAt = Date.now();
-    return { repoId: fixtureId, jobId: 'fixture-job' };
+    return { repoId: fixtureRepositoryId, jobId: fixtureJobId };
   }
   if (url.pathname.includes('/jobs/'))
     return {
-      id: 'fixture-job',
+      id: fixtureJobId,
       status: Date.now() - importedAt > 2000 ? 'partial' : 'running',
       phase:
         Date.now() - importedAt > 2000
@@ -163,13 +253,14 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
     };
   if (path.endsWith('/reindex')) {
     importedAt = Date.now();
-    return { repoId: fixtureId, jobId: 'fixture-job' };
+    return { repoId: fixtureRepositoryId, jobId: fixtureJobId };
   }
   if (url.pathname.endsWith('/search')) {
     const q = (url.searchParams.get('q') || '').toLowerCase();
     return {
       items: nodes.filter((n) => `${n.title} ${n.kind} ${n.path || ''}`.toLowerCase().includes(q)),
       nextCursor: null,
+      snapshotSha: sha,
     };
   }
   if (url.pathname.includes('/entities/')) {
@@ -184,10 +275,13 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
         (n) => related.some((e) => e.source === n.id || e.target === n.id) && n.id !== id,
       ),
       edges: related,
+      snapshotSha: sha,
+      truncated: false,
+      warnings: ['Synthetic fixture neighborhood.'],
     };
   }
   if (url.pathname.endsWith('/graph')) {
-    const selected = url.searchParams.get('entityId') || 'auth';
+    const selected = url.searchParams.get('entityId') || fixtureAuthId;
     let ids = new Set([selected]);
     for (let i = 0; i < Number(url.searchParams.get('depth') || 1); i++) {
       const next = new Set(ids);
@@ -208,6 +302,7 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
       ),
       truncated: true,
       warnings: ['Synthetic neighborhood, not real repository evidence.'],
+      snapshotSha: sha,
     };
   }
   if (path.endsWith('/ask')) {
@@ -222,7 +317,7 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
             {
               text: 'The fixture discussion describes preserving active sessions during token refresh.',
               support: 'documented',
-              evidenceIds: ['fixture-discussion'],
+              evidenceIds: [fixtureSourceId],
             },
           ]
         : [],
@@ -230,7 +325,10 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
       unknowns: supported
         ? ['This example is synthetic and cannot explain a real repository.']
         : ['The fixture recognizes one exact example question. No answer was generated.'],
+      warnings: [],
       snapshotSha: sha,
+      errorCode: null,
+      searchAvailable: true,
     };
     return answer;
   }
@@ -250,8 +348,8 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
   if (url.pathname.endsWith('/knowledge-risk'))
     return {
       snapshotSha: sha,
-      historyFrom: '2026-10-01',
-      historyTo: '2026-10-06',
+      historyFrom: at('2026-10-01'),
+      historyTo: at('2026-10-06'),
       partial: true,
       warnings: [
         'Synthetic authorship, not Git-derived evidence.',
@@ -260,42 +358,47 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
       files: [
         {
           path: 'src/auth.ts',
-          entityId: 'auth',
+          entityId: fixtureAuthId,
           observedAuthors: 1,
           commitCount: 3,
-          lastEdit: '2026-10-04',
+          commitCountIsLowerBound: false,
+          lastEdit: at('2026-10-04'),
           contributors: [{ name: 'Fixture contributor A', commits: 3 }],
           sources: [
             {
-              id: 'fixture-contribution',
+              id: fixtureContributionSourceId,
               kind: 'commit',
               locator: 'Synthetic contribution record - no actual Git commit',
               excerpt: 'Development-only observed modification record. Not Git-derived evidence.',
-              observedAt: '2026-10-04',
+              observedAt: at('2026-10-04'),
             },
           ],
+          caveats: ['Synthetic authorship; not a real Git observation.'],
         },
         {
           path: 'src/session.ts',
-          entityId: 'session',
+          entityId: fixtureSessionId,
           observedAuthors: 2,
           commitCount: 4,
-          lastEdit: '2026-10-05',
+          commitCountIsLowerBound: false,
+          lastEdit: at('2026-10-05'),
           contributors: [
             { name: 'Fixture contributor A', commits: 3 },
             { name: 'Fixture contributor B', commits: 1 },
           ],
           sources: [
             {
-              id: 'fixture-contribution',
+              id: fixtureContributionSourceId,
               kind: 'commit',
               locator: 'Synthetic contribution record - no actual Git commit',
               excerpt: 'Development-only observed modification record. Not Git-derived evidence.',
-              observedAt: '2026-10-04',
+              observedAt: at('2026-10-04'),
             },
           ],
+          caveats: ['Synthetic authorship; not a real Git observation.'],
         },
       ],
+      nextCursor: null,
     };
   if (path.endsWith('/pr-check')) {
     if (body.prNumber !== 12)
@@ -303,11 +406,11 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
         'FIXTURE_INPUT_UNSUPPORTED',
         'This fixture only exercises PR 12. A real check requires the live backend.',
       );
-    return { runId: 'fixture-run' };
+    return { runId: fixtureRunId };
   }
   if (url.pathname.includes('/analysis/'))
     return {
-      id: 'fixture-run',
+      id: fixtureRunId,
       status: 'completed',
       prNumber: 12,
       baseSha: sha,
@@ -321,7 +424,7 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
         'Fixture head differs from the snapshot; this example is stale.',
       ],
     };
-  if (url.pathname === `/repositories/${fixtureId}`) return repository;
+  if (url.pathname === `/repositories/${fixtureRepositoryId}`) return repository;
   throw new ApiError(
     'SOURCE_NOT_FOUND',
     'Unknown development fixture. Open the labelled fixture repository.',

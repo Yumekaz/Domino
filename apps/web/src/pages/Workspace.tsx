@@ -38,6 +38,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { api, fixtureMode } from '../api/client';
+import { fixtureRepositoryId } from '../dev/fixtureIds';
 import { type Repository } from '../api/schemas';
 import {
   Badge,
@@ -245,7 +246,10 @@ function RepositoryHome() {
                 import, use <code>https://github.com/domino-example/causal-lab</code>.
               </p>
             </div>
-            <Link className="button button-secondary" to="/app/repositories/development-fixture">
+            <Link
+              className="button button-secondary"
+              to={`/app/repositories/${fixtureRepositoryId}`}
+            >
               Open fixture <ArrowRight size={17} />
             </Link>
           </div>
@@ -530,7 +534,8 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
     queryFn: ({ signal }) => api.job(repoId, jobId, signal),
     refetchInterval: (q) =>
       q.state.status === 'error' ||
-      (q.state.data && ['ready', 'completed', 'partial', 'failed'].includes(q.state.data.status))
+      (q.state.data &&
+        ['ready', 'completed', 'partial', 'failed', 'cancelled'].includes(q.state.data.status))
         ? false
         : 2000,
   });

@@ -9,9 +9,11 @@ type ObservedFile = {
   entityId: string;
   observedAuthors: number;
   commitCount: number;
-  lastEdit: string;
+  commitCountIsLowerBound: boolean;
+  lastEdit: string | null;
   contributors: { name: string; commits: number }[];
   sources: Source[];
+  caveats: string[];
 };
 
 export default function KnowledgeLedger({
@@ -87,7 +89,7 @@ export default function KnowledgeLedger({
             </b>{' '}
             for this file.
             <br />
-            Last recorded edit <time>{file.lastEdit}</time>.
+            Last recorded edit <time>{file.lastEdit ?? 'not supplied'}</time>.
           </p>
           <Link to={`${historyPath}?focus=${encodeURIComponent(file.entityId)}`}>
             Follow the history
@@ -136,9 +138,18 @@ export default function KnowledgeLedger({
         </div>
         <p className="spectrum-caption">
           Shares use the returned contributor entries, within the reported history window.
+          {file.commitCountIsLowerBound &&
+            ' The reported commit count is a lower bound because contributor samples were capped.'}
           {total !== file.commitCount &&
             ` Those entries total ${total}; the file reports ${file.commitCount} commits.`}
         </p>
+        {file.caveats.length > 0 && (
+          <div className="ledger-caveats">
+            {file.caveats.map((caveat) => (
+              <p key={caveat}>{caveat}</p>
+            ))}
+          </div>
+        )}
         <div className="ledger-provenance">
           <Eyebrow>FOLLOW THE OBSERVATION TO ITS SOURCE</Eyebrow>
           <SourceLens sources={file.sources} id="contribution-source" />

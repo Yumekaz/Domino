@@ -1,0 +1,17 @@
+{
+  "extends": "./packages/core/impact/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types"]
+  },
+  "include": [
+    "packages/dependency-adapter/src/**/*.ts",
+    "packages/dependency-adapter/test/**/*.ts",
+    "packages/core/impact/src/**/*.ts",
+    "packages/core/impact/test/**/*.ts",
+    "apps/worker/src/handlers/analysis/**/*.ts",
+    "apps/worker/src/structural.ts",
+    "apps/api/src/impact-services.ts",
+    "apps/api/src/pr-services.ts",
+    "packages/database/src/impact.ts"
+  ]
+}

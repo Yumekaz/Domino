@@ -8,6 +8,7 @@ import {
 } from "../../../packages/database/src/jobs.ts";
 import { scopeHistoryStore } from "../../../packages/database/src/history-port.ts";
 import { historyJobSchema } from "../../../packages/contracts/src/index.ts";
+import { createStructuralAnalysis } from "./structural.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
@@ -117,7 +118,7 @@ await boss.work<HistoryJobPayload>(
         repoId: job.repoId,
         snapshotId: job.snapshotId,
         githubId: job.githubId,
-        structuralUnavailable: true,
+        structuralUnavailable: false,
       });
       const handler = modules.handler.createHistoryImportHandler({
         github,
@@ -126,6 +127,10 @@ await boss.work<HistoryJobPayload>(
           now: () => Date.now(),
           isoNow: () => new Date().toISOString(),
         },
+        structural: createStructuralAnalysis(pool, {
+          repoId: job.repoId,
+          githubId: job.githubId,
+        }),
       });
       try {
         await handler.handle(
