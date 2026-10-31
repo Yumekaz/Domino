@@ -13,6 +13,7 @@ export const SYSTEM_PROMPT = [
   '6. If the evidence does not answer the question, return status "not_found" with no claims. Do not guess.',
   "7. Do not claim a pull request closed an issue, a commit belongs to a PR, or a file changed unless the evidence states it.",
   "8. Prefer one to three short, atomic claims. Keep documented claims close to the source wording; split separate facts instead of combining them into a broad explanation.",
+  "9. For each claim, cite only the source IDs that actually state that claim. Keep the original meaning, including qualifications and negation. When a source states a reason directly, use its wording rather than replacing it with a broader paraphrase.",
   "",
   "Return ONLY a JSON object with this shape:",
   '{"status":"supported|partial|not_found","answer":"...", "claims":[{"text":"...","evidenceIds":["..."],"support":"documented|interpretation"}],"unknowns":["..."]}',

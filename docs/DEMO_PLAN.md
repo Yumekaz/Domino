@@ -1,5 +1,44 @@
 # Domino demo plan
 
+## Rehearsed public-repository walkthrough
+
+The following steps use real indexed data, not a fixture. The source and the
+repository may change; always rehearse on the presentation machine immediately
+before the demo and check the snapshot SHA and coverage shown in the app.
+
+1. Connect or reopen `https://github.com/sindresorhus/yocto-queue`. A rehearsal
+   on 31 October 2026 used `main` at
+   `72a8fa96a9d389765cdf2bb9c6daba8302fc375d`. Its overall coverage was partial;
+   show the coverage notes rather than suggesting that all history was indexed.
+2. In Connected history, search `iterator` and open the 4 March 2025 comment on
+   issue #11 at
+   `https://github.com/sindresorhus/yocto-queue/issues/11#issuecomment-2696500039`.
+   Use **Ask about this record**, then ask: “Why was a separate drain() method
+   added instead of changing the existing iterator to dequeue items?” Select a
+   claim and inspect the original source. One live run returned two inferred
+   claims explaining the breaking-change concern and the suggested separate
+   method. Other runs returned partial answers; the output is generated, not a
+   guaranteed script. If it is partial or unavailable, show the actual status
+   and original discussion instead of repeating calls or claiming success.
+3. Ask an unrelated question with no selected record, and show `not found` when
+   no indexed source matches. With an entity selected, focus evidence can still
+   be retrieved even for an unrelated question, so clear the focus first.
+4. Trace `index.js` in Change impact. In this snapshot `test.js` and
+   `index.test-d.ts` were direct possible dependents; the co-change entries
+   were separate historical associations. Inspect an actual source link.
+5. Open `index.js` in the graph, use the accessible record list to inspect a
+   connection, and show the risk view's observed-contributor caveats.
+
+The source validator checks citation membership and conservative lexical
+overlap; it is not a proof of semantic entailment. Review the actual source
+before presenting a generated claim as fact. Source excerpts can be bounded and
+their original GitHub links remain the definitive context.
+
+The user has deferred automatic GitHub-summary work for this pass. The local
+walkthrough does not establish a hosted deployment, a full browser/accessibility
+audit, or performance for large real graphs. The longer matrix below retains
+historical acceptance criteria and earlier state notes for context.
+
 **Latest live proof:** see [Live workspace validation](LIVE_WORKSPACE_VALIDATION.md) for real browser-to-backend import, GPT-6 Luna, impact/source inspection, contributor-history replay and reindex verification. The older status notes below are historical; hosted delivery and broad performance/accessibility acceptance remain open. Automatic summary integration is deferred by the user's current instruction.
 
 Status: **integration complete, live acceptance pending.** This plan covers the integrated

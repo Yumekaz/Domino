@@ -9,6 +9,7 @@ import type {
 } from "./types.ts";
 import type { HistoryStore } from "../../history/src/ports.ts";
 import { HistoryError } from "../../history/src/errors.ts";
+import { clip } from "../../history/src/paths.ts";
 import {
   containsAllAnchors,
   containsAllQuotes,
@@ -319,8 +320,10 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
     };
   }
   return {
-    status: "supported",
-    answer: raw.answer.trim().length > 0 ? raw.answer : acceptedClaims.map((claim) => claim.text).join(" "),
+    status: raw.status,
+    // Only claims pass source validation; the model's separate summary can
+    // contain additional, uncited statements even when every claim passes.
+    answer: acceptedClaims.map((claim) => claim.text).join(" "),
     claims: acceptedClaims,
     sources,
     unknowns: raw.unknowns,
@@ -348,7 +351,9 @@ function buildSources(ids: string[], packById: Map<string, EvidencePack["chunks"
       url: chunk.sourceUrl,
       locator: chunk.locator,
       title,
-      excerpt: chunk.excerpt,
+      // Search snippets can omit the sentence supporting a claim. Return the
+      // bounded source text supplied to the model so it can be inspected.
+      excerpt: clip(chunk.body, 2_400),
       timestamp: chunk.sourceTimestamp,
       revision: chunk.revision,
       contentSha: chunk.contentSha,

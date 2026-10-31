@@ -134,6 +134,82 @@ test("unsupported question returns not_found without calling the model", async (
   assert.equal(provider.calls.length, 0);
 });
 
+test("does not expose unvalidated facts from a model's separate answer summary", async () => {
+  const fixture = await createQaFixture();
+  const provider = new FakeProvider(() => jsonResponse({
+    status: "supported",
+    answer: "The behavior is intended. Queen Elizabeth signed the release in 1994.",
+    claims: [{
+      text: DEEPSEEK_STYLE_SUPPORTED_CLAIM,
+      evidenceIds: [fixture.chunkIds.comment],
+      support: "documented",
+    }],
+  }));
+  const result = await askQuestion(
+    { repoId: fixture.repoId, snapshotId: fixture.snapshotId, question: "Why does the iterator behave this way?" },
+    {
+      retriever: new DefaultEvidenceRetriever({ store: fixture.store }),
+      store: fixture.store,
+      llm: provider,
+      clock: { isoNow: () => "2026-10-31T00:00:00.000Z" },
+    },
+  );
+  assert.equal(result.status, "supported");
+  assert.equal(result.answer, DEEPSEEK_STYLE_SUPPORTED_CLAIM);
+  assert.doesNotMatch(result.answer ?? "", /Queen Elizabeth/);
+});
+
+test("preserves a model's partial status when its accepted claims do not fully answer the question", async () => {
+  const fixture = await createQaFixture();
+  const provider = new FakeProvider(() => jsonResponse({
+    status: "partial",
+    answer: DEEPSEEK_STYLE_SUPPORTED_CLAIM,
+    claims: [{
+      text: DEEPSEEK_STYLE_SUPPORTED_CLAIM,
+      evidenceIds: [fixture.chunkIds.comment],
+      support: "documented",
+    }],
+    unknowns: ["The sources do not establish the release date."],
+  }));
+  const result = await askQuestion(
+    { repoId: fixture.repoId, snapshotId: fixture.snapshotId, question: "Why does the iterator behave this way?" },
+    {
+      retriever: new DefaultEvidenceRetriever({ store: fixture.store }),
+      store: fixture.store,
+      llm: provider,
+      clock: { isoNow: () => "2026-10-31T00:00:00.000Z" },
+    },
+  );
+  assert.equal(result.status, "partial");
+  assert.equal(result.answer, DEEPSEEK_STYLE_SUPPORTED_CLAIM);
+  assert.deepEqual(result.unknowns, ["The sources do not establish the release date."]);
+});
+
+test("returns the validated source text rather than an abbreviated search snippet", async () => {
+  const fixture = await createQaFixture();
+  const [chunk] = await fixture.store.getEvidenceChunks(
+    fixture.repoId, fixture.snapshotId, [fixture.chunkIds.comment],
+  );
+  assert.ok(chunk);
+  await fixture.store.replaceEvidenceChunks([{ ...chunk, excerpt: "This is intended behavior. [truncated]" }]);
+  const provider = new FakeProvider(() => jsonResponse({
+    status: "supported",
+    answer: DEEPSEEK_STYLE_SUPPORTED_CLAIM,
+    claims: [{ text: DEEPSEEK_STYLE_SUPPORTED_CLAIM, evidenceIds: [chunk.id], support: "documented" }],
+  }));
+  const result = await askQuestion(
+    { repoId: fixture.repoId, snapshotId: fixture.snapshotId, question: "Why does the iterator behave this way?" },
+    {
+      retriever: new DefaultEvidenceRetriever({ store: fixture.store }),
+      store: fixture.store,
+      llm: provider,
+      clock: { isoNow: () => "2026-10-31T00:00:00.000Z" },
+    },
+  );
+  assert.equal(result.status, "supported");
+  assert.match(result.sources[0]?.excerpt ?? "", /Maybe called drain/);
+});
+
 test("dangling evidence IDs are rejected even when the model is confident", async () => {
   const fixture = await createQaFixture();
   const missing = "99999999-9999-4999-8999-999999999999";

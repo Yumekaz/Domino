@@ -152,9 +152,22 @@ export class DefaultEvidenceRetriever implements EvidenceRetriever {
     const selected: typeof ranked = [];
     const selectedIds = new Set<string>();
     const seenKinds = new Set<string>();
+    // The user explicitly chose this record. Reserve one slot for its
+    // evidence before diversity selection and prompt-budget truncation.
+    const focused = ranked.find((entry) => entry.reason === "focus");
+    if (focused !== undefined) {
+      selected.push(focused);
+      selectedIds.add(focused.chunk.id);
+      if (focused.chunk.sourceKind !== "file_excerpt") {
+        seenKinds.add(focused.chunk.sourceKind);
+      }
+    }
     // Keep the pack from collapsing into file excerpts when discussion and
     // document evidence is what answers a "why" question.
     for (const entry of ranked) {
+      if (selectedIds.has(entry.chunk.id)) {
+        continue;
+      }
       if (entry.chunk.sourceKind === "file_excerpt") {
         continue;
       }
