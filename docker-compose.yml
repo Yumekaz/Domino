@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: domino
+      POSTGRES_USER: domino
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - domino_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U domino -d domino"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: .
+    command: ["npm", "run", "db:migrate"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+  api:
+    build: .
+    command: ["npm", "run", "dev:api"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      HOST: 0.0.0.0
+      DOMINO_API_TOKEN: ${DOMINO_API_TOKEN:?Set DOMINO_API_TOKEN in .env}
+      DOMINO_ALLOWED_ORIGINS: ${DOMINO_ALLOWED_ORIGINS:-http://localhost:5173}
+      DOMINO_GITHUB_TOKEN: ${DOMINO_GITHUB_TOKEN:-}
+      DOMINO_OPENAI_API_KEY: ${DOMINO_OPENAI_API_KEY:-}
+      DOMINO_LLM_MODEL: ${DOMINO_LLM_MODEL:-gpt-4o-mini}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  worker:
+    build: .
+    command: ["npm", "run", "dev:worker"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DOMINO_GITHUB_TOKEN: ${DOMINO_GITHUB_TOKEN:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  domino_postgres:

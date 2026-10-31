@@ -4,27 +4,27 @@
 
 The investigation studio and launch doorway reuse these same adapters. The studio requests entity detail and impact for the selected indexed record; the doorway uses the shared repository import form. No new endpoint, backend response field, or local authoritative analysis was introduced. Contributor percentages are labelled shares of the returned contributor counts only.
 
-At initial inspection the repository contained only the supplied specifications and brand files. There was no `apps/api`, `apps/worker`, `packages/contracts`, running service, or ready-made frontend. Those backend areas remain untouched.
+At the frontend freeze, no `apps/api`, `apps/worker`, or `packages/contracts` existed. The role A backend branch now adds those foundations; B's history implementation is in a separate draft PR. This document describes the existing frontend adapter, which D still needs to align with the proposed shared contract. See [backend API contracts](../API_CONTRACTS.md) for current backend status.
 
 `apps/web/src/api/client.ts` calls the master specification's endpoint paths. `schemas.ts` contains **provisional frontend Zod decoders**, derived from the illustrative response examples and the UI's required fields. They are not a newly established backend contract. Replace/import them from the integrator's shared DTO package when available, keeping the server authoritative. A mismatch surfaces as `CONTRACT_MISMATCH`; the client does not guess field aliases or populate missing analysis data.
 
 ## Endpoint wiring
 
-| Method and suffix under `/api/v1` | Frontend use | Integration status |
-| --- | --- | --- |
-| GET `/health` | Connection status | Adapter implemented; live service absent |
-| POST `/repositories` | Public URL import, returned `repoId`, `jobId` | Adapter + inline validation + simulated dev journey |
-| GET `/repositories/:repoId` | Identity, snapshot, coverage | Provisional response decoder |
-| GET `/repositories/:repoId/jobs/:jobId` | Phase/status/warnings; optional reported progress | Polls every 2s; stops on terminal status/error |
-| POST `/repositories/:repoId/reindex` | Explicit refresh, returned job | Adapter implemented |
-| GET `/repositories/:repoId/search` | Paginated history/root lookup | `q`, `limit=30`, optional `cursor` assumed |
-| GET `/repositories/:repoId/entities/:entityId` | Sources/neighbors/relationship proof | Provisional detail decoder |
-| GET `/repositories/:repoId/graph` | Snapshot + entity + bounded depth | Spec request names retained; array query encoding requires integrator confirmation |
-| POST `/repositories/:repoId/ask` | Claim/source report and explicit not-found | Spec example response supported; dangling citations withheld |
-| POST `/repositories/:repoId/impact` | Changed files or proposed diff + maxDepth | Spec example response supported; no client traversal |
-| GET `/repositories/:repoId/knowledge-risk` | Scoped authorship + evidence | `snapshotId`, `limit=50` and response envelope assumed |
-| POST `/repositories/:repoId/pr-check` | Explicit PR analysis request | `{prNumber}` → `{runId}` assumed; needs approval by backend owner |
-| GET `/repositories/:repoId/analysis/:runId` | Run status, base/head/event, result, actual Actions link | Decoder assumed; polls every 2.5s until terminal/error |
+| Method and suffix under `/api/v1`              | Frontend use                                             | Integration status                                                                 |
+| ---------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| GET `/health`                                  | Connection status                                        | Adapter implemented; live service absent                                           |
+| POST `/repositories`                           | Public URL import, returned `repoId`, `jobId`            | Adapter + inline validation + simulated dev journey                                |
+| GET `/repositories/:repoId`                    | Identity, snapshot, coverage                             | Provisional response decoder                                                       |
+| GET `/repositories/:repoId/jobs/:jobId`        | Phase/status/warnings; optional reported progress        | Polls every 2s; stops on terminal status/error                                     |
+| POST `/repositories/:repoId/reindex`           | Explicit refresh, returned job                           | Adapter implemented                                                                |
+| GET `/repositories/:repoId/search`             | Paginated history/root lookup                            | `q`, `limit=30`, optional `cursor` assumed                                         |
+| GET `/repositories/:repoId/entities/:entityId` | Sources/neighbors/relationship proof                     | Provisional detail decoder                                                         |
+| GET `/repositories/:repoId/graph`              | Snapshot + entity + bounded depth                        | Spec request names retained; array query encoding requires integrator confirmation |
+| POST `/repositories/:repoId/ask`               | Claim/source report and explicit not-found               | Spec example response supported; dangling citations withheld                       |
+| POST `/repositories/:repoId/impact`            | Changed files or proposed diff + maxDepth                | Spec example response supported; no client traversal                               |
+| GET `/repositories/:repoId/knowledge-risk`     | Scoped authorship + evidence                             | `snapshotId`, `limit=50` and response envelope assumed                             |
+| POST `/repositories/:repoId/pr-check`          | Explicit PR analysis request                             | `{prNumber}` → `{runId}` assumed; needs approval by backend owner                  |
+| GET `/repositories/:repoId/analysis/:runId`    | Run status, base/head/event, result, actual Actions link | Decoder assumed; polls every 2.5s until terminal/error                             |
 
 Every listed integration is client wiring, **not a validated live round trip**. Real evidence and automatic PR acceptance remain NOT PERFORMED until the backend is available.
 

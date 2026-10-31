@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+**/coverage
+*.log
+AGENTS.md
+CLAUDE.md
+TEAM_RULES.md
+HANDOFFS.md
+handoffs
+Domino-Backend-Handoffs.zip
+.domino-a-b-review
