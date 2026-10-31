@@ -4,6 +4,7 @@ import path from "node:path";
 import { createTestStore } from "../support/testStore.ts";
 import { runHistoryImport } from "../../../../apps/worker/src/handlers/history/pipeline.ts";
 import { createOctokitApiFromEnv } from "../../../github-adapter/src/octokitApi.ts";
+import { yoctoQueueApi } from "../../../github-adapter/test/support/fakeGithub.ts";
 import { checkoutRepository } from "../../../git-adapter/src/checkout.ts";
 import { analyzeGitHistory } from "../../../git-adapter/src/history.ts";
 import {
@@ -113,12 +114,15 @@ function parseEvidence(user: string): PromptEvidence[] {
 }
 
 async function main(): Promise<void> {
+  const githubDataMode =
+    process.env.DOMINO_ACCEPTANCE_GITHUB === "fixture" ? "public-fixture" : "live-api";
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "domino-live-acceptance-"));
   fs.rmdirSync(dataDir);
   const storeHandle = await createTestStore(dataDir);
   const summary: Record<string, unknown> = {
     startedAt: clock.isoNow(),
     remote: REMOTE,
+    githubDataMode,
     mergeSha: MERGE_SHA,
     baseSha: BASE_SHA,
     liveModelCheck: {
@@ -180,7 +184,8 @@ async function main(): Promise<void> {
         },
       },
       {
-        github: createOctokitApiFromEnv(),
+        github:
+          githubDataMode === "public-fixture" ? yoctoQueueApi() : createOctokitApiFromEnv(),
         store: storeHandle.store,
         clock,
         progress: (event) => {
@@ -507,7 +512,10 @@ async function main(): Promise<void> {
       observations: coChange.observations,
     };
     summary.finishedAt = clock.isoNow();
-    const outputPath = path.join(os.tmpdir(), "domino-live-acceptance.json");
+    const outputPath = path.join(
+      os.tmpdir(),
+      `domino-${githubDataMode === "live-api" ? "live" : "fixture"}-acceptance.json`,
+    );
     fs.writeFileSync(outputPath, JSON.stringify(summary, null, 2), "utf8");
     console.log(JSON.stringify(summary, null, 2));
     console.error(`Live acceptance evidence written to ${outputPath}`);
