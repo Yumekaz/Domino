@@ -57,36 +57,13 @@ jobs:
         with:
           node-version: 24.15.0
           cache: npm
-          cache-dependency-path: analyzer/packages/dependency-adapter/package-lock.json
+          cache-dependency-path: analyzer/package-lock.json
 
-      - name: Install the pinned analyzer only
+      - name: Install trusted analyzer workspace dependencies
         if: steps.analyzer.outputs.present == 'true'
-        working-directory: analyzer/packages/dependency-adapter
+        working-directory: analyzer
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Diagnose analyzer cwd
-        if: steps.analyzer.outputs.present == 'true'
-        shell: bash
-        run: |
-          node -e "const fs=require('fs'); const file=process.env.GITHUB_WORKSPACE+'/target/apps/web/tsconfig.json'; fs.writeFileSync('/tmp/dc-config.json', JSON.stringify({forbidden:[],options:{parser:'tsc',tsPreCompilationDeps:true,doNotFollow:{path:'node_modules'},exclude:{path:'(^|/)(node_modules|dist|build|out|coverage|vendor|__generated__|generated|\\\\.git|\\\\.next|\\\\.cache)(/|$)'},tsConfig:{fileName:file}}}))"
-          cd target
-          echo "cwd=$(pwd)"
-          node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config /tmp/dc-config.json --output-type json --progress none > /tmp/dc-cwd.json 2>/tmp/dc-cwd.err || true
-          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-cwd.json','utf8')); console.log('cwd modules', j.modules?.length, 'baseDir', j.summary?.optionsUsed?.baseDir);"
-          head -10 /tmp/dc-cwd.err
-          node -e "const fs=require('fs'); fs.writeFileSync('/tmp/dc-no-tsconfig.json', JSON.stringify({forbidden:[],options:{parser:'tsc',tsPreCompilationDeps:true,doNotFollow:{path:'node_modules'},exclude:{path:'(^|/)(node_modules|dist|build|out|coverage|vendor|__generated__|generated|\\\\.git|\\\\.next|\\\\.cache)(/|$)'}}}))"
-          node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config /tmp/dc-no-tsconfig.json --output-type json --progress none > /tmp/dc-no-tsconfig-out.json 2>/tmp/dc-no-tsconfig.err || true
-          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-no-tsconfig-out.json','utf8')); console.log('no-tsconfig modules', j.modules?.length);"
-          head -10 /tmp/dc-no-tsconfig.err
-          mkdir -p /tmp/dc-probe/src
-          printf 'export const a = 1;\n' > /tmp/dc-probe/src/a.ts
-          printf "import { a } from './a';\nexport const b = a;\n" > /tmp/dc-probe/src/b.ts
-          node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs /tmp/dc-probe/src --output-type json --progress none > /tmp/dc-min.json 2>/tmp/dc-min.err || true
-          echo "--- minimal stderr"
-          cat /tmp/dc-min.err
-          echo "--- typescript install"
-          ls -d ../analyzer/node_modules/typescript 2>/dev/null || true
-          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-min.json','utf8')); console.log('minimal modules', j.modules?.length);" || true
       - name: Compute and publish the impact summary
         if: steps.analyzer.outputs.present == 'true'
         env:
