@@ -1,3 +1,4 @@
+// Acceptance probe for the opened PR-impact workflow run; no runtime behavior changes.
 import { z } from 'zod';
 import * as s from './schemas';
 import { ApiError } from './errors';
