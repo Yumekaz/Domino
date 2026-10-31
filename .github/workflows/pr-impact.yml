@@ -78,6 +78,12 @@ jobs:
           node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs apps/web/src --config /tmp/dc-no-tsconfig.json --output-type json --progress none > /tmp/dc-no-tsconfig-out.json 2>/tmp/dc-no-tsconfig.err || true
           node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-no-tsconfig-out.json','utf8')); console.log('no-tsconfig modules', j.modules?.length);"
           head -10 /tmp/dc-no-tsconfig.err
+          mkdir -p /tmp/dc-probe/src
+          printf 'export const a = 1;\n' > /tmp/dc-probe/src/a.ts
+          printf "import { a } from './a';\nexport const b = a;\n" > /tmp/dc-probe/src/b.ts
+          node ../analyzer/node_modules/dependency-cruiser/bin/dependency-cruiser.mjs /tmp/dc-probe/src --output-type json --progress none > /tmp/dc-min.json 2>/tmp/dc-min.err || true
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('/tmp/dc-min.json','utf8')); console.log('minimal modules', j.modules?.length);"
+          head -10 /tmp/dc-min.err
       - name: Compute and publish the impact summary
         if: steps.analyzer.outputs.present == 'true'
         env:
