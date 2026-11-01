@@ -65,7 +65,7 @@ export class DefaultEvidenceRetriever implements EvidenceRetriever {
       limit: maxChunks,
       entityKinds: discussionKinds,
     });
-    const searchHits = dedupeHits([...generalHits, ...discussionHits]);
+    let searchHits = dedupeHits([...generalHits, ...discussionHits]);
 
     let focusEntity: EntityRecord | null = null;
     if (input.focusEntityId !== undefined) {
@@ -77,7 +77,11 @@ export class DefaultEvidenceRetriever implements EvidenceRetriever {
       }
     }
 
-    const seedEntityIds = [
+    // A question such as "why was this code written this way?" refers to
+    // the selected record, not every source matching common words like "code".
+    // Search hits may seed broader exploration only for non-relative questions.
+    const focusRelative = focusEntity !== null && refersToSelection(input.question);
+    const seedEntityIds = focusRelative ? [focusEntity.id] : [
       ...new Set([
         ...searchHits.map((hit) => hit.entityId),
         ...(focusEntity === null ? [] : [focusEntity.id]),
@@ -105,6 +109,10 @@ export class DefaultEvidenceRetriever implements EvidenceRetriever {
       if (neighbors.truncated) {
         warnings.push("Graph expansion was truncated; the evidence pack is bounded.");
       }
+    }
+    if (focusRelative) {
+      const allowedEntities = new Set([focusEntity.id, ...neighborEntities.map((entity) => entity.id)]);
+      searchHits = searchHits.filter((hit) => allowedEntities.has(hit.entityId));
     }
 
     const scoreById = new Map<string, { chunk: EvidenceChunkRecord; score: number; reason: string }>();
@@ -233,6 +241,10 @@ export class DefaultEvidenceRetriever implements EvidenceRetriever {
       generatedAt: (this.options.clock ?? { isoNow: () => new Date().toISOString() }).isoNow(),
     };
   }
+}
+
+function refersToSelection(question: string): boolean {
+  return /\b(?:this|that|selected|current)\s+(?:code|file|record|commit|change|issue|pull\s+request|pr|comment|discussion|document|implementation|function|method|decision)\b/i.test(question);
 }
 
 function dedupeEntities(entities: EntityRecord[]): EntityRecord[] {

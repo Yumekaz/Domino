@@ -420,7 +420,7 @@ test("dangling evidence IDs are rejected even when the model is confident", asyn
     },
   );
   assert.equal(result.status, "not_found");
-  assert.equal(result.answer, "No supporting project history found.");
+  assert.equal(result.answer, "No generated answer passed source validation.");
   assert.equal(result.claims.length, 0);
   assert.equal(result.sources.length, 0);
   assert.ok(result.validation?.rejectedEvidenceIds.includes(missing));
@@ -596,7 +596,7 @@ test("model not_found is preserved even when a pack exists", async () => {
     },
   );
   assert.equal(result.status, "not_found");
-  assert.equal(result.answer, "No supporting project history found.");
+  assert.equal(result.answer, "No supported answer was found in the retrieved history.");
   assert.equal(result.sources.length, 0);
   assert.deepEqual(result.unknowns, ["The sources do not answer the question."]);
 });

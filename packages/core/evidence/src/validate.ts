@@ -331,7 +331,7 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
   if (raw.status === "not_found") {
     return {
       status: "not_found",
-      answer: "No supporting project history found.",
+      answer: "No supported answer was found in the retrieved history.",
       claims: [],
       sources: [],
       unknowns: raw.unknowns,
@@ -342,7 +342,9 @@ export async function validateAnswer(input: ValidateAnswerInput): Promise<Valida
   if (acceptedClaims.length === 0) {
     return {
       status: "not_found",
-      answer: "No supporting project history found.",
+      // Retrieval can succeed even when every generated claim is rejected.
+      // Do not imply that source records are absent in that case.
+      answer: "No generated answer passed source validation.",
       claims: [],
       sources: [],
       unknowns: [

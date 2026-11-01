@@ -433,9 +433,7 @@ export function AskPage() {
               ) : (
                 <>
                   <p className="answer-summary">
-                    {ask.data.status === 'not_found'
-                      ? 'No supporting project history found.'
-                      : (ask.data.answer ?? 'No answer text was returned.')}
+                    {ask.data.answer ?? 'No answer text was returned.'}
                   </p>
                   <div className="claim-list">
                     {ask.data.claims.map((claim, i) => (
@@ -474,6 +472,14 @@ export function AskPage() {
                     <p key={i}>{u}</p>
                   ))}
                 </div>
+              )}
+              {focus && (ask.data.status === 'not_found' || ask.data.status === 'unavailable') && (
+                <p>
+                  You can inspect the selected record as context; it has not been validated as an answer.{' '}
+                  <Link to={`/app/repositories/${encodeURIComponent(repoId)}/history?focus=${encodeURIComponent(focus)}`}>
+                    Open selected record
+                  </Link>
+                </p>
               )}
             </article>
           ) : (

@@ -254,6 +254,57 @@ test("reserves the first prompt slot for a focused file even when discussion hit
   }
 });
 
+test("relative questions stay within the selected record and its direct neighbors", async () => {
+  const { testStore, commentId, issueId } = await seed();
+  try {
+    const pack = await new DefaultEvidenceRetriever({ store: testStore.store }).buildPack({
+      repoId: REPO,
+      snapshotId: SNAPSHOT,
+      question: "Why was this code written this way? drain method",
+      focusEntityId: commentId,
+      maxChunks: 12,
+      maxNeighbors: 4,
+      maxNeighborChunks: 1,
+    });
+    assert.equal(pack.chunks[0]?.entityId, commentId);
+    assert.ok(pack.chunks.some((chunk) => chunk.entityId === issueId));
+    assert.ok(pack.chunks.every((chunk) => [commentId, issueId].includes(chunk.entityId)));
+    assert.ok(pack.edges.every((edge) => edge.fromEntityId === commentId || edge.toEntityId === commentId));
+    const { buildEvidencePrompt } = await import("../../core/evidence/src/prompt.ts");
+    const prompt = buildEvidencePrompt(pack, pack.question, 24_000);
+    assert.match(prompt.user, /Selected record metadata/);
+    assert.match(prompt.user, /"isSelectedRecord": true/);
+    assert.match(prompt.user, /"isSelectedRecord": false/);
+    assert.match(prompt.system, /Related records are separate sources/);
+  } finally {
+    await testStore.close();
+  }
+});
+
+test("a selected record without evidence does not fall back to unrelated search results", async () => {
+  const { testStore } = await seed();
+  try {
+    const emptyId = "44444444-4444-4444-8444-444444444444";
+    await testStore.store.upsertEntities([{
+      id: emptyId, repoId: REPO, kind: "Contributor", canonicalKey: "unrelated-person",
+      title: "No evidence", sourceUrl: "https://github.com/example", metadata: {},
+    }]);
+    const pack = await new DefaultEvidenceRetriever({ store: testStore.store }).buildPack({
+      repoId: REPO,
+      snapshotId: SNAPSHOT,
+      question: "Why was this code written this way? drain method",
+      focusEntityId: emptyId,
+      maxChunks: 12,
+      maxNeighbors: 4,
+      maxNeighborChunks: 1,
+    });
+    assert.equal(pack.noEvidence, true);
+    assert.deepEqual(pack.chunks, []);
+  } finally {
+    await testStore.close();
+  }
+});
+
 test("no-evidence and unpublished-snapshot packs fail truthfully", async () => {
   const { testStore } = await seed();
   try {

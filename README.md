@@ -1,96 +1,139 @@
+<p align="center">
+  <img src="apps/web/public/assets/domino-mark.png" width="76" alt="Domino logo" />
+</p>
+
 # Domino
 
-A cinematic product launch and an evidence-led engineering workspace for INNOVISTA PS06.
+**Know why code changed. See what another change could affect.**
 
-The authoritative product specification is `PROJECT_BRAIN_PS06_MASTER_SPEC.md`; the creative brief is `DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md`. The desktop frontend lives in `apps/web`. Fastify, PostgreSQL, pg-boss, Git/GitHub history, evidence-backed Q&A and dependency-cruiser power the actual workspace. The web client validates shared Zod contracts. Public imports, model answers and fresh PR-head analysis have been exercised locally; coverage remains bounded and explicitly partial. See [local readiness](docs/LOCAL_READINESS.md) for current evidence and limitations. Hosted deployment is outside the current scope.
+Domino is an engineering memory and investigation workspace for public GitHub repositories. It brings source code, project history and recorded relationships into one place, so developers can follow a decision to its evidence and explore the possible consequences of a change.
 
-## Local presentation
+Built for INNOVISTA PS06, Domino pairs a cinematic product launch with a working local engineering workspace. It is a hackathon MVP, not a hosted production service.
 
-Install the root dependencies with `npm ci --ignore-scripts` and the web dependencies with `npm ci --prefix apps/web`. Configure the ignored root `.env` from `.env.example`, including an existing PostgreSQL database and server-side credentials. Then run:
+## What you can do
 
-```powershell
-npm run demo
-# In another terminal:
-npm run demo:doctor
-# To stop the app while preserving PostgreSQL and indexed data:
-npm run demo:stop
+- **Connect a repository.** Import available Git history, GitHub issues, pull requests, discussions and source excerpts into an indexed snapshot tied to a revision. The workspace shows coverage and warns when collection is partial.
+- **Follow connected history.** Search indexed records, explore their relationships and open original sources from the evidence inspector.
+- **Ask Domino.** Ask questions about indexed history and inspect the sources behind returned claims. Domino can return partial or not-found results when it cannot support an answer. Inspect sources: citation validation is not a guarantee of correctness.
+- **Trace change impact.** Enter repository-relative paths or a proposed diff to explore possible direct and transitive dependents. Historical co-change is shown separately as an association, not a dependency or a prediction of breakage.
+- **Explore the memory graph.** Navigate a bounded network of records and relationships, with filters, source inspection and a record-list alternative.
+- **Find knowledge at risk.** Review observed contributors to files in indexed Git history. A single observed contributor is a reason to investigate, not proof that only one person understands the code.
+- **Review pull requests.** Request an analysis of a public PR's head revision and inspect its changed files, possible impact, status and coverage. An optional integration can observe a successful GitHub Actions run and trigger a locally recomputed report.
+
+## How it works
+
+```text
+Public GitHub repository
+       │
+       ▼
+Git / GitHub history + source files ──► Background worker
+                                           │
+                           Static imports + source evidence
+                                           │
+                                           ▼
+                            PostgreSQL indexed snapshot
+                                           │
+                              API + shared contracts
+                                           │
+                    ┌──────────────────────┴──────────────────────┐
+                    ▼                                             ▼
+           History, impact and graph                    Evidence-backed Q&A
+                    │                                   (model + validation)
+                    └──────────────────────┬──────────────────────┘
+                                           ▼
+                                  Domino web workspace
 ```
 
-Open `http://127.0.0.1:5173`. The supervisor migrates the existing database, builds and verifies the live production frontend, starts the API and both worker queues, and serves the SPA behind a same-origin loopback proxy. It never initializes or resets database data. Optional existing native PostgreSQL paths and the pinned setup helper are described in [local readiness](docs/LOCAL_READINESS.md). Keep runtime data, tools, backups and review artifacts under ignored `.domino`, outside npm-managed directories.
+The React, TypeScript and Vite frontend uses Cytoscape.js for the interactive graph. The backend uses Fastify, PostgreSQL, pg-boss and Git/GitHub adapters. Dependency-cruiser supplies supported static import relationships; the optional Codebase Memory MCP integration adds function and method excerpts. Q&A retrieves indexed evidence before asking a configured model.
 
-## Run
+## Run locally
 
-Requires Node.js 22.12+ (validated with 22.20.0) and npm.
+### Prerequisites
+
+- Node.js **22.20 or later**, npm and Git.
+- A running local PostgreSQL database (PostgreSQL 13+), with an existing database and credentials. The demo launcher does not create or reset your database.
+- An OpenAI API key and a model available to your account for AI answers. Other workspace features can be explored without a configured model; Q&A will report its availability.
+- Optional: a GitHub token for public repository imports. Unauthenticated requests have lower rate limits.
+
+1. Install dependencies from the repository root:
+
+   ```powershell
+   npm ci --ignore-scripts
+   npm ci --prefix apps/web
+   ```
+
+2. Copy `.env.example` to `.env` and configure it for your **local** PostgreSQL instance. The example file's `postgres` hostname is for Compose; use a loopback hostname such as `127.0.0.1` with the local demo launcher. Set the database credentials for your existing instance, and add any model or GitHub credentials server-side. Never commit `.env` or put secrets in `VITE_` variables.
+
+   ```dotenv
+   DATABASE_URL=postgresql://USER:PASSWORD@127.0.0.1:5432/DATABASE
+   DOMINO_GITHUB_TOKEN=
+   DOMINO_OPENAI_API_KEY=
+   DOMINO_LLM_MODEL=gpt-6-luna
+   ```
+
+   Use a model name available to your account. The provided Windows helper can start an already initialized PostgreSQL 17 cluster when its binary and data paths are configured; see [local setup and recovery](docs/LOCAL_READINESS.md#run-and-recover-locally).
+
+3. Start the local stack:
+
+   ```powershell
+   npm run demo
+   ```
+
+   Open **[http://127.0.0.1:5173](http://127.0.0.1:5173)**. The launcher migrates the existing database, builds the frontend and starts the API, worker queues and loopback web proxy. Leave the terminal running.
+
+4. From another terminal, check or stop the managed services:
+
+   ```powershell
+   npm run demo:doctor
+   npm run demo:stop
+   ```
+
+   Stopping the app preserves the database and indexed data. The launcher is for local use; it is not a public deployment.
+
+## Try an investigation
+
+1. Open the workspace and connect a public GitHub repository, such as `https://github.com/sindresorhus/yocto-queue`. Wait for indexing and check the coverage notes.
+2. In **Connected history**, select a record and inspect its original source.
+3. In **Ask Domino**, ask a specific question about available project evidence and inspect any cited sources.
+4. In **Change impact**, enter an actual path from that repository, such as `index.js` in yocto-queue. Select a returned dependent to inspect the path and evidence. Results describe possible impact, not confirmed failures.
+
+Imports and answers depend on GitHub availability, rate limits, the selected revision and available evidence. A question can return no answer, even when related source material exists; inspect the original records and coverage notes.
+
+## Development and checks
+
+The root package manages the API, worker and backend packages. The web app has its own package and lockfile. To run the backend and Vite separately, configure `.env`, then run `npm run db:migrate`, `npm run dev:api` and `npm run dev:worker` from the root in separate terminals. Run `npm run dev` in `apps/web`; Vite proxies `/api` to the local API on port 3000. `VITE_API_BASE_URL` can point to a different API origin and must not contain `/api/v1`.
 
 ```powershell
-cd apps/web
-npm ci
-npm run dev
-```
-
-Open the printed local URL. `/` is the launch; `/app` connects repositories. Vite proxies `/api` to `http://127.0.0.1:3000`. Configure `VITE_API_BASE_URL` in `.env.local` to use another API origin; do not include `/api/v1` in that value. Only public configuration belongs in `VITE_` variables.
-
-**Live mode is the default.** Without the API, import and analysis show connection errors and retry controls. Fixtures never replace a failed live request. The shared contracts are consumed by the API and frontend; genuine source links, exact revisions and coverage caveats stay visible.
-
-## Explicit development fixture
-
-```powershell
-npm run dev:fixtures -- --port 5174
-```
-
-Open `/app`, then **Open fixture**. Every workspace view labels synthetic data. The isolated fixture is a UI exercise, not a genuine Git repository or computed analysis. It recognizes one exact example question, the `src/auth.ts` impact input, and PR #12. Arbitrary analyses are refused. No source URL or Actions run is invented. Production builds always use live mode, including builds made with `--mode fixtures`; the fixture module is eliminated from the production bundle.
-
-## Verify
-
-```powershell
+# Backend, from the repository root
 npm run typecheck
-npm run lint
 npm test
-npm run build
-npm run preview
+
+# Frontend
+npm run typecheck --prefix apps/web
+npm run lint --prefix apps/web
+npm test --prefix apps/web
+npm run build --prefix apps/web
+npm run verify:production --prefix apps/web
 ```
 
-Client safety and adapter tests cover malformed responses, connection errors, unsupported input, citation membership, URL restrictions, graph integrity, and isolated fixture response families. Browser review exercises the launch and all seven workspace views. This does not replace live integration testing.
+Production builds use the live API; connection failures are shown rather than replaced with sample results. A separate development-only renderer harness is available with `npm run dev:renderer` in `apps/web`.
 
-## Handoff
+An optional, pinned Codebase Memory MCP adapter adds function and method source excerpts without introducing dependency edges or extra model calls. See [setup and boundaries](docs/CODE_INTELLIGENCE.md). A separate [GitHub Actions workflow](.github/workflows/pr-impact.yml) can generate a read-only PR impact summary; optional observation inside Domino requires server-side configuration described in [local readiness](docs/LOCAL_READINESS.md).
 
-- [Shared backend contracts, endpoints and integration boundaries](docs/API_CONTRACTS.md)
-- [Current local acceptance and presentation startup](docs/LOCAL_READINESS.md)
-- [Backend validation and live integration evidence](docs/BACKEND_VALIDATION.md)
-- [Current live workspace, GPT-6 Luna and contributor-change validation](docs/LIVE_WORKSPACE_VALIDATION.md)
-- [Optional CBM symbol-source intelligence: setup, boundaries and real-repository acceptance](docs/CODE_INTELLIGENCE.md)
-- [Desktop frontend freeze and current verification](docs/frontend/final/VISUAL_FREEZE.md)
-- [Spatial graph revision and the test-harness/product distinction](docs/frontend/network/GRAPH.md)
-- [Current investigation studio, desktop critique, and verification](docs/frontend/studio/HANDOFF.md)
-- [Previous desktop north star and iteration evidence](docs/frontend/desktop-northstar/DESKTOP_NORTHSTAR.md)
-- [Design direction and reference research](docs/frontend/DESIGN.md)
-- [API integration assumptions and backend gaps](docs/frontend/INTEGRATION.md)
-- [Asset provenance and generation prompts](docs/frontend/ASSETS.md)
-- [First-pass visual QA and acceptance evidence](docs/frontend/QA.md)
+## Scope and limitations
 
-For deployment, serve `apps/web/dist` with SPA fallback to `index.html`, route `/api/v1` to the backend, and use HTTPS. Do not deploy the Vite development server. Source publication does not deploy or host the application.
+- Public GitHub repositories are supported; structural analysis is JavaScript/TypeScript-first and bounded by the indexer's file, history and resolver limits.
+- Indexed history can be partial. Missing relationships, dynamic behavior and runtime effects may not be captured.
+- Model answers and citation checks are fallible. An answer can be partial, unavailable or not found; a source link is not proof that an interpretation is correct.
+- Contributor observations describe indexed commit history, not actual ownership or knowledge. Impact paths indicate what to investigate, not guaranteed breakage.
+- Local desktop operation has been exercised with real repositories. Hosted deployment, production hardening, complete cross-browser accessibility and mobile acceptance are not claimed as complete.
 
-## Backend development
+## Further reading
 
-The standard API, worker and migration commands load an optional ignored root `.env`. Configure `DOMINO_OPENAI_API_KEY` there and keep `DOMINO_LLM_MODEL=gpt-6-luna`. Q&A uses a bounded evidence pack, 600 output tokens and no automatic model retries. The development proxy reads `DOMINO_API_TOKEN` server-side from the root or web environment; no credentials belong in `VITE_` variables. `npm run start:api` and `npm run start:worker` are also available for runtime use.
-
-Use Node 22.20+ for the complete local launcher/test workflow (verified locally on 22.20.0; CI and Docker use 24.11.1) and PostgreSQL 13+. The individual API/worker packages retain their Node 22.12+ baseline. The backend and frontend use separate lockfiles. From the repository root:
-
-```powershell
-npm ci --ignore-scripts
-$env:DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:5432/DATABASE'
-npm run db:migrate
-npm run dev:api
-```
-
-In a second terminal with the same `DATABASE_URL`, run `npm run dev:worker`. The worker registers `history.import` and `analysis.impact`. Imports collect Git/GitHub history and run the pinned structural analyzer at an exact SHA before publishing a snapshot. Manual PR checks enqueue an isolated exact-head structural analysis; they do not require the default branch snapshot to match the PR. The workspace's main index stays intact. Missing analyzer coverage remains visible. PostgreSQL migrations are checksum-verified and forward-only. `npm run demo` manages these services together.
-
-The separate read-only `.github/workflows/pr-impact.yml` produces GitHub summaries. Optional `DOMINO_ACTIONS_SYNC=1` observes successful public workflows at that configured path and queues a locally recomputed check only for the current PR head. It retains the genuine Actions link; it does not import remote artifacts or execute imported workflows. This needs a server-side GitHub token and opens no public ingress.
-
-For installations with a corporate/system TLS root, Node can use the operating system certificate store with `NODE_USE_SYSTEM_CA=1`; do not disable certificate verification. Configure GitHub/model tokens only in the server environment. `DOMINO_GITHUB_TOKEN` is optional for public imports but avoids the much lower anonymous GitHub rate limit.
-
-Optional function/method evidence enrichment is available through pinned Codebase Memory MCP 0.12.1. Run `npm run setup:cbm` on Windows x64 and follow [the setup and acceptance record](docs/CODE_INTELLIGENCE.md). It is disabled by default, needs no embeddings or extra model calls, and retains baseline ingestion if the native engine is unavailable. Restart the worker and reindex to enrich a new snapshot.
-
-`docker-compose.yml` and `Dockerfile` provide a local PostgreSQL/API/worker layout. Copy `.env.example` to `.env` and `.env.postgres.example` to `.env.postgres`; set the same URL-safe database password in the PostgreSQL file and `DATABASE_URL`, and set a long random `DOMINO_API_TOKEN`. Then run `docker compose up --build`. The container API requires `Authorization: Bearer <token>`; set the same `DOMINO_API_TOKEN` in the shell that runs the Vite dev server so its `/api` proxy adds the header without exposing the token to the browser. A production static host needs an equivalent server-side reverse proxy. Compose has not been tested on this machine because Docker is unavailable.
-
-Backend checks: `npm run typecheck` (contracts, API, database, history and impact packages) and `npm test` (Vitest API/migration/impact tests plus the history, retrieval, evidence, knowledge-risk, dependency-adapter and PR-action suites). Focused commands are `npm run typecheck:history`, `npm run test:history`, `npm run typecheck:impact` and `npm run test:impact`. Real PostgreSQL/queue tests run only with `DOMINO_ALLOW_POSTGRES_TESTS=1` and `DOMINO_TEST_DATABASE_URL` pointing to a database named `domino_a_test`; live Git/GitHub tests require `DOMINO_LIVE_GIT=1` or `DOMINO_LIVE_GITHUB=1`. See `.github/workflows/backend-ci.yml` and `.github/workflows/pr-impact.yml`. Frontend checks remain under `apps/web`. Server-side model configuration is documented in [the history handler notes](apps/worker/src/handlers/history/README.md). Live model results and conservative validation limits are recorded in [the walkthrough](docs/DEMO_PLAN.md).
+- [Product and backend specification](PROJECT_BRAIN_PS06_MASTER_SPEC.md)
+- [Frontend creative brief](DOMINO_FRONTEND_CREATIVE_AND_CODEX_SPEC.md)
+- [API contracts and integration boundaries](docs/API_CONTRACTS.md)
+- [Local startup, acceptance and limitations](docs/LOCAL_READINESS.md)
+- [Optional code intelligence](docs/CODE_INTELLIGENCE.md)
+- [Design direction and research](docs/frontend/DESIGN.md)
+- [Graph design and accessibility](docs/frontend/network/GRAPH.md)
