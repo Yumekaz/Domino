@@ -135,6 +135,54 @@ describe("snapshot-scoped structural storage", () => {
       true,
     );
   });
+  it("stores repeated file pairs once while retaining distinct import observations and graph provenance", async () => {
+    const base = imports[0]!;
+    const variants: StructuralImportRecord[] = [
+      base,
+      { ...base, specifier: "@app/auth", evidence: { type: "import", specifier: "@app/auth", line: 11 } },
+      { ...base, dynamic: true, dependencyTypes: ["dynamic"], evidence: { ...base.evidence, line: 18 } },
+      { ...base, evidence: { ...base.evidence, line: 25 } },
+    ];
+    // Scatter same-pair imports across batches to ensure grouping is global.
+    const filler = Array.from({ length: 105 }, (_, index) => ({
+      ...base,
+      importer: `extra/source${index}.ts`,
+      imported: `extra/target${index}.ts`,
+    }));
+    const input = [variants[0]!, ...filler, imports[1]!, ...variants.slice(1), variants[0]!];
+    const first = await replacePendingStructural(pool, repo, snapshot, input, { owner: "owner", name: "repo" }, sha);
+    expect(first.dependencies).toBe(107);
+    expect(first.edges).toBe(5);
+    const rows = await db.query<{ evidence: { observations: unknown[] } }>(
+      "SELECT evidence FROM file_dependencies WHERE snapshot_id=$1 AND importing_file=$2 AND imported_file=$3",
+      [snapshot, base.importer, base.imported],
+    );
+    expect(rows.rows).toHaveLength(1);
+    expect(rows.rows[0]!.evidence.observations).toHaveLength(4);
+    const observed = (await readStructuralImports(pool, repo, snapshot, sha))
+      .filter((item) => item.importer === base.importer && item.imported === base.imported)
+      .map((item) => ({ specifier: item.specifier, dynamic: item.dynamic, line: item.evidence.line }));
+    expect(observed).toEqual([
+      { specifier: "./auth", dynamic: false, line: 4 },
+      { specifier: "./auth", dynamic: false, line: 25 },
+      { specifier: "./auth", dynamic: true, line: 18 },
+      { specifier: "@app/auth", dynamic: false, line: 11 },
+    ]);
+    const graph = await db.query<{ evidence: { specifier: string; dynamic: boolean; locator: string } }>(
+      "SELECT evidence FROM edges WHERE snapshot_id=$1 AND from_entity_id=$2 AND to_entity_id=$3",
+      [snapshot, session, auth],
+    );
+    expect(graph.rows).toHaveLength(4);
+    expect(graph.rows.map((row) => row.evidence.locator).sort()).toEqual([
+      "src/session.ts:11", "src/session.ts:18", "src/session.ts:25", "src/session.ts:4",
+    ]);
+    await replacePendingStructural(pool, repo, snapshot, [...input].reverse(), { owner: "owner", name: "repo" }, sha);
+    const reversed = (await readStructuralImports(pool, repo, snapshot, sha))
+      .filter((item) => item.importer === base.importer && item.imported === base.imported)
+      .map((item) => ({ specifier: item.specifier, dynamic: item.dynamic, line: item.evidence.line }));
+    expect(reversed).toEqual(observed);
+    await replacePendingStructural(pool, repo, snapshot, imports, { owner: "owner", name: "repo" }, sha);
+  });
   it("rejects writes to published snapshots and reports missing File records", async () => {
     await db.query(
       "UPDATE index_snapshots SET status='ready',completed_at=now() WHERE id=$1",

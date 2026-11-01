@@ -42,13 +42,17 @@ function normalizedImports(
     const importer = repositoryPathSchema.parse(item.importer);
     const imported = repositoryPathSchema.parse(item.imported);
     if (importer === imported) continue;
-    const key = JSON.stringify([importer, imported, item.specifier, item.dynamic]);
+    const dependencyTypes = [...new Set(item.dependencyTypes)].sort();
+    const key = JSON.stringify([
+      importer, imported, item.specifier, item.dynamic, item.evidence.line,
+      item.circular, dependencyTypes, item.extractor, item.analyzerVersion, item.configHash,
+    ]);
     if (!unique.has(key)) {
       unique.set(key, {
         ...item,
         importer,
         imported,
-        dependencyTypes: [...new Set(item.dependencyTypes)],
+        dependencyTypes,
       });
     }
   }
@@ -76,6 +80,24 @@ function dependencyEvidence(item: StructuralImportRecord): Record<string, unknow
   };
 }
 
+// The storage key is one row per file pair and dependency kind, while the
+// analyzer may observe several distinct import specifiers or import modes for
+// that pair. Keep every normalized observation in the row for round trips.
+function dependencyGroups(data: readonly StructuralImportRecord[]): StructuralImportRecord[][] {
+  const groups = new Map<string, StructuralImportRecord[]>();
+  for (const item of data) {
+    const key = JSON.stringify([item.importer, item.imported]);
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map((group) => group.sort((a, b) =>
+    a.specifier.localeCompare(b.specifier) || Number(a.dynamic) - Number(b.dynamic) ||
+    (a.evidence.line ?? Number.MAX_SAFE_INTEGER) - (b.evidence.line ?? Number.MAX_SAFE_INTEGER) ||
+    JSON.stringify(dependencyEvidence(a)).localeCompare(JSON.stringify(dependencyEvidence(b))),
+  ));
+}
+
 /**
  * Replaces snapshot-scoped structural observations while the snapshot is still
  * pending. File dependencies feed the impact engine; IMPORTS edges feed the
@@ -96,6 +118,7 @@ export async function replacePendingStructural(
   if (imports.length > 100_000)
     throw new Error("Structural import batch exceeds the configured limit");
   const data = normalizedImports(imports);
+  const dependencyRows = dependencyGroups(data);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -130,11 +153,12 @@ export async function replacePendingStructural(
     const missing = new Set(
       paths.filter((path) => !entityByPath.has(path)),
     );
-    for (let start = 0; start < data.length; start += 100) {
-      const batch = data.slice(start, start + 100);
+    for (let start = 0; start < dependencyRows.length; start += 100) {
+      const batch = dependencyRows.slice(start, start + 100);
       const values: unknown[] = [];
       const rows: string[] = [];
-      for (const item of batch) {
+      for (const group of batch) {
+        const item = group[0]!;
         const n = values.length;
         rows.push(
           `($${n + 1},$${n + 2},$${n + 3},$${n + 4},$${n + 5},$${n + 6},$${n + 7},$${n + 8}::jsonb)`,
@@ -147,7 +171,13 @@ export async function replacePendingStructural(
           item.imported,
           "import",
           item.evidence.line,
-          JSON.stringify(dependencyEvidence(item)),
+          JSON.stringify({
+            ...dependencyEvidence(item),
+            observations: group.map((observation) => ({
+              ...dependencyEvidence(observation),
+              line: observation.evidence.line,
+            })),
+          }),
         );
       }
       await client.query(
@@ -207,7 +237,7 @@ export async function replacePendingStructural(
     }
     await client.query("COMMIT");
     return {
-      dependencies: data.length,
+      dependencies: dependencyRows.length,
       edges: edgeRows.length,
       missingEntities: missing.size,
     };
@@ -240,29 +270,37 @@ export async function readStructuralImports(
      ORDER BY importing_file,imported_file,id`,
     [repoId, snapshotId],
   );
-  return result.rows.map((row) => {
+  return result.rows.flatMap((row) => {
     const evidence = row.evidence ?? {};
-    const specifier = stringValue(evidence.specifier, row.dependency_kind);
-    return {
-      importer: row.importing_file,
-      imported: row.imported_file,
-      specifier,
-      dependencyTypes: Array.isArray(evidence.dependencyTypes)
-        ? evidence.dependencyTypes.filter(
-            (value): value is string => typeof value === "string",
-          )
-        : [row.dependency_kind],
-      dynamic: booleanValue(evidence.dynamic),
-      circular: booleanValue(evidence.circular),
-      extractor: stringValue(evidence.extractor, "dependency-cruiser"),
-      analyzerVersion: stringValue(evidence.analyzerVersion, "unknown"),
-      configHash: stringValue(evidence.configHash, "unknown"),
-      snapshotSha,
-      evidence: {
-        type: "import",
-        specifier,
-        line: row.source_line,
-      },
-    };
+    const observations = Array.isArray(evidence.observations) && evidence.observations.length > 0
+      ? evidence.observations.filter((value): value is Record<string, unknown> =>
+          value !== null && typeof value === "object" && !Array.isArray(value))
+      : [evidence];
+    return observations.map((observation) => {
+      const specifier = stringValue(observation.specifier, row.dependency_kind);
+      const line = typeof observation.line === "number" && Number.isInteger(observation.line) && observation.line > 0
+        ? observation.line : ("line" in observation ? null : row.source_line);
+      return {
+        importer: row.importing_file,
+        imported: row.imported_file,
+          specifier,
+        dependencyTypes: Array.isArray(observation.dependencyTypes)
+          ? observation.dependencyTypes.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [row.dependency_kind],
+        dynamic: booleanValue(observation.dynamic),
+        circular: booleanValue(observation.circular),
+        extractor: stringValue(observation.extractor, "dependency-cruiser"),
+        analyzerVersion: stringValue(observation.analyzerVersion, "unknown"),
+        configHash: stringValue(observation.configHash, "unknown"),
+        snapshotSha,
+        evidence: {
+          type: "import",
+          specifier,
+          line,
+        },
+      };
+    });
   });
 }
