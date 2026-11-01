@@ -424,6 +424,11 @@ export async function fixtureRequest(path: string, init?: RequestInit): Promise<
         'Fixture head differs from the snapshot; this example is stale.',
       ],
     };
+  if (url.pathname.endsWith('/analyses/latest'))
+    throw new ApiError(
+      'FIXTURE_INPUT_UNSUPPORTED',
+      'Automatic Actions runs require the live backend; this fixture contains no Actions run.',
+    );
   if (url.pathname === `/repositories/${fixtureRepositoryId}`) return repository;
   throw new ApiError(
     'SOURCE_NOT_FOUND',

@@ -6,7 +6,7 @@ The web client now imports the shared runtime Zod contracts from `packages/contr
 
 The backend composes role A's persistence/queue/API, role B's history/retrieval/evidence pipeline and role C's dependency-cruiser impact engine. During import, the worker analyses the exact-SHA checkout, stores snapshot-scoped dependencies and source-backed `IMPORTS` edges, and publishes structural coverage. The API exposes deterministic impact over those observations and a manual PR-analysis run service. C's read-only `pull_request` workflow produces the automatic PR step summary independently.
 
-Live model synthesis, a live public PR Actions run, a fresh live import through the integrated worker, deployment and a complete browser-to-live-backend journey remain unverified. Fixture and browser checks are not substitutes for those gates.
+Live model synthesis, a live public import and the live opened/synchronized PR Actions summary are recorded in the validation documents. Hosted automatic Actions ingestion, deployment and a complete browser-to-live-backend acceptance remain unverified. Fixture and browser checks are not substitutes for those gates.
 
 ## Endpoint wiring
 
@@ -25,6 +25,7 @@ Live model synthesis, a live public PR Actions run, a fresh live import through 
 | GET `/repositories/:repoId/knowledge-risk` | Scoped authorship + evidence | Shared risk contract; cursor pagination, nullable dates, lower-bound counts and caveats |
 | POST `/repositories/:repoId/pr-check` | Explicit PR analysis request | Resolves exact PR base/head; persists a run; stale with no result when snapshot ≠ head |
 | GET `/repositories/:repoId/analysis/:runId` | Run status, base/head/event, result, actual Actions link | Shared analysis contract; polls every 2.5s until terminal/error |
+| GET `/repositories/:repoId/analyses/latest?prNumber=` | **Find automatic run** button | Latest run ingested from the PR workflow for that number; ignores manual runs and 404 is shown explicitly, never replaced with another run |
 
 ## Behaviour and limits
 
@@ -33,6 +34,7 @@ Live model synthesis, a live public PR Actions run, a fresh live import through 
 - Q&A `unavailable` preserves search/source availability messaging and never displays a fabricated answer. `not_found` remains a separate factual result.
 - Risk dates may be null. Percentages are shares of returned contributor entries, never knowledge scores. Cursor pagination is explicit.
 - Co-change sample/window are displayed only when returned. Historical association stays outside structural paths.
+- **Find automatic run** performs an explicit latest-run lookup for the entered PR number. Automatic results appear only after the repository's workflow ingests a verified run with its real Actions URL; the page never invents a run, substitutes the indexed snapshot, or implies that requesting an analysis installs the workflow.
 - A Vite dev proxy can attach a server-side `DOMINO_API_TOKEN`; the token is not exposed in `VITE_` variables or the browser bundle. A deployed static host needs an equivalent reverse proxy.
 - No repository-list or analysis-run-list endpoint exists; the browser-local recent list and explicit run-ID lookup remain intentional.
 
@@ -40,7 +42,7 @@ Live model synthesis, a live public PR Actions run, a fresh live import through 
 
 1. Fresh live import through the integrated worker against a public repository, including structural coverage and a persisted graph after restart.
 2. A live model-generated supported answer and semantic-support validation; an unsupported question and model outage still need live confirmation.
-3. A real opened/synchronized PR Actions summary from the merged workflow, with two different head SHAs.
+3. A real opened/synchronized PR Actions summary from the merged workflow is verified (PR #13), and a local API/PostgreSQL replay verified the ingested run plus **Find automatic run** in the browser; a hosted automatic ingestion into a deployed Domino API with the `DOMINO_API_TOKEN` secret still needs live confirmation.
 4. A manual PR run against a snapshot whose SHA equals the PR head (otherwise the UI correctly reports stale).
 5. Deployment, reverse-proxy authentication, CORS and HTTPS checks.
 6. Representative large-graph/foreground motion profiling, cross-browser/accessibility review and the deferred mobile acceptance.

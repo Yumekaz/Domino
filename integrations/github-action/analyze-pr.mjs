@@ -13,6 +13,7 @@ import {
 } from "../../packages/dependency-adapter/src/index.ts";
 import { analyzeCheckout } from "../../packages/dependency-adapter/src/runner.ts";
 import { computeStructuralImpact } from "../../packages/core/impact/src/impact.ts";
+import { toContractImpact } from "../../packages/core/impact/src/contracts.ts";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 const EVENTS = new Set(["opened", "reopened", "synchronize"]);
@@ -236,6 +237,13 @@ export function renderSummary(input) {
     "Not available in this read-only workflow. Co-change requires the indexed historical dataset and is never inferred from import paths.",
     "",
   );
+  if (input.domino?.runUrl) {
+    lines.push("## Domino workspace", "");
+    lines.push(`[Open this automatic run in Domino](${input.domino.runUrl})`, "");
+  } else if (input.domino?.warning) {
+    lines.push("## Domino workspace", "");
+    lines.push(`The workspace was not updated: ${codePoint(input.domino.warning)}`, "");
+  }
   lines.push("## Warnings and limitations", "");
   const warnings = [
     ...input.workflowWarnings,
@@ -243,7 +251,7 @@ export function renderSummary(input) {
     "Static imports describe possible impact, not guaranteed runtime failure.",
     "Dynamic imports, unresolved external modules, runtime dependency injection and generated code remain limitations.",
     "Fork PRs receive a read-only token; the workflow never checks out untrusted code with privileged permissions and never runs repository code.",
-    "This workflow writes a GitHub Actions step summary. It does not post a PR comment or persist an analysis run by itself.",
+    "This workflow writes a GitHub Actions step summary and, when a Domino API is configured, ingests the run and its Actions URL into Domino. It does not post a PR comment.",
   ];
   for (const warning of [...new Set(warnings)]) lines.push(`- ${codePoint(warning)}`);
   lines.push("");
@@ -296,6 +304,91 @@ function resolveAnalyzerScript(analyzerRoot) {
     "ANALYZER_NOT_FOUND",
     "The pinned dependency-cruiser analyzer is not installed.",
   );
+}
+
+export async function ingestDomino(input, fetchImpl = fetch) {
+  const apiUrl = (process.env.DOMINO_API_URL ?? "").replace(/\/+$/, "");
+  if (!apiUrl)
+    return {
+      warning:
+        "DOMINO_API_URL is not configured; this run remains in the GitHub summary only.",
+    };
+  const token = process.env.DOMINO_API_TOKEN ?? "";
+  if (!token)
+    return {
+      warning:
+        "DOMINO_API_TOKEN is not configured; automatic Domino ingestion was skipped.",
+    };
+  if (!input.actionsUrl)
+    return {
+      warning:
+        "The GitHub Actions run URL is unavailable; automatic Domino ingestion was skipped.",
+    };
+  let result;
+  try {
+    result = toContractImpact(input.result);
+  } catch {
+    return {
+      warning:
+        "The impact result could not be mapped to the shared contract; automatic Domino ingestion was skipped.",
+    };
+  }
+  try {
+    const response = await fetchImpl(`${apiUrl}/api/v1/integrations/pr-analysis`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        repositoryUrl: `https://github.com/${input.repository}`,
+        prNumber: input.prNumber,
+        baseSha: input.baseSha,
+        headSha: input.headSha,
+        event: input.action,
+        actionsUrl: input.actionsUrl,
+        changedFiles: input.changedFiles,
+        result,
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = await response.text();
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      /* handled below */
+    }
+    if (!response.ok) {
+      const code =
+        body && typeof body.code === "string" ? body.code : undefined;
+      return {
+        warning: `Domino ingestion failed (${response.status}${code ? ` ${code}` : ""}). The GitHub summary remains authoritative.`,
+      };
+    }
+    if (
+      !body ||
+      typeof body.repoId !== "string" ||
+      typeof body.runId !== "string"
+    )
+      return {
+        warning:
+          "Domino ingestion returned an invalid response; no workspace link is available.",
+      };
+    const webUrl = (process.env.DOMINO_WEB_URL ?? "").replace(/\/+$/, "");
+    if (!webUrl)
+      return {
+        warning: `Domino run ${body.runId} was ingested; set DOMINO_WEB_URL for a workspace link.`,
+      };
+    return {
+      runUrl: `${webUrl}/app/repositories/${encodeURIComponent(body.repoId)}/pr?run=${encodeURIComponent(body.runId)}`,
+    };
+  } catch {
+    return {
+      warning:
+        "Domino ingestion failed; the GitHub summary remains authoritative.",
+    };
+  }
 }
 
 async function main() {
@@ -395,6 +488,24 @@ async function main() {
       },
       analysis.imports,
     );
+    const runId = process.env.GITHUB_RUN_ID;
+    const serverUrl = (
+      process.env.GITHUB_SERVER_URL ?? "https://github.com"
+    ).replace(/\/+$/, "");
+    const actionsUrl =
+      runId && /^\d+$/.test(runId)
+        ? `${serverUrl}/${validated.repository}/actions/runs/${runId}`
+        : undefined;
+    const domino = await ingestDomino({
+      repository: validated.repository,
+      prNumber: validated.prNumber,
+      baseSha: validated.baseSha,
+      headSha: validated.headSha,
+      action: validated.action,
+      actionsUrl,
+      changedFiles: changed.files.map((file) => file.filename),
+      result,
+    });
     const summary = renderSummary({
       repository: validated.repository,
       prNumber: validated.prNumber,
@@ -408,6 +519,7 @@ async function main() {
       result,
       workflowWarnings,
       analyzerSummary: analysis.summary,
+      domino,
     });
     const summaryPath = process.env.GITHUB_STEP_SUMMARY;
     if (summaryPath) writeFileSync(summaryPath, summary + "\n", { flag: "a" });

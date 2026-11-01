@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   fetchChangedFiles,
+  ingestDomino,
   parseChangedFileRecords,
   renderSummary,
   validatePullRequestEvent,
@@ -221,9 +222,46 @@ describe("Summary truthfulness", () => {
     assert.match(summary, new RegExp(SHA_B));
     assert.match(summary, /src\/session\.ts/);
     assert.match(summary, /Historical co-change/);
-    assert.match(summary, /does not post a PR comment or persist an analysis run/);
+    assert.match(summary, /does not post a PR comment/);
     assert.doesNotMatch(summary, /actions\/runs\/\d+/);
     assert.match(summary, /runtime dependency injection/);
+  });
+
+  it("links an ingested automatic run and states when ingestion was skipped", () => {
+    const input = {
+      repository: "Yumekaz/Domino",
+      prNumber: 12,
+      action: "synchronize" as const,
+      baseSha: SHA_A,
+      headSha: SHA_B,
+      analyzerVersion: "18.7.0",
+      configHash: "d".repeat(64),
+      changedFiles: ["src/auth.ts"],
+      binaryFiles: [],
+      result,
+      workflowWarnings: [],
+    };
+    const linked = renderSummary({
+      ...input,
+      domino: {
+        runUrl:
+          "https://domino.example/app/repositories/repo-id/pr?run=run-id",
+      },
+    });
+    assert.match(linked, /Open this automatic run in Domino/);
+    assert.match(
+      linked,
+      /https:\/\/domino\.example\/app\/repositories\/repo-id\/pr\?run=run-id/,
+    );
+    const skipped = renderSummary({
+      ...input,
+      domino: {
+        warning: "DOMINO_API_URL is not configured; this run remains in the GitHub summary only.",
+      },
+    });
+    assert.match(skipped, /The workspace was not updated/);
+    assert.match(skipped, /DOMINO_API_URL is not configured/);
+    assert.doesNotMatch(skipped, /Open this automatic run/);
   });
 
   it("states absence explicitly instead of claiming no impact", () => {
@@ -245,6 +283,88 @@ describe("Summary truthfulness", () => {
   });
 });
 
+describe("Automatic Domino ingestion", () => {
+  const ENV_KEYS = ["DOMINO_API_URL", "DOMINO_API_TOKEN", "DOMINO_WEB_URL"];
+  const clearEnv = () => {
+    for (const key of ENV_KEYS) delete process.env[key];
+  };
+  const input = {
+    repository: "Yumekaz/Domino",
+    prNumber: 12,
+    baseSha: SHA_A,
+    headSha: SHA_B,
+    action: "synchronize",
+    actionsUrl: "https://github.com/Yumekaz/Domino/actions/runs/999",
+    changedFiles: ["src/auth.ts"],
+    result,
+  };
+
+  it("posts the contract impact and returns the real ingested run link", async () => {
+    process.env.DOMINO_API_URL = "https://domino.example/";
+    process.env.DOMINO_API_TOKEN = "ingest-token";
+    process.env.DOMINO_WEB_URL = "https://app.domino.example/";
+    try {
+      let captured: { url: string; init: RequestInit } | undefined;
+      const fetchImpl = async (url: string, init: RequestInit) => {
+        captured = { url, init };
+        return new Response(
+          JSON.stringify({ repoId: "repo-id", runId: "run-id" }),
+          { status: 202 },
+        );
+      };
+      const domino = await ingestDomino(input, fetchImpl as typeof fetch);
+      assert.equal(
+        captured?.url,
+        "https://domino.example/api/v1/integrations/pr-analysis",
+      );
+      assert.equal(
+        captured?.init.headers &&
+          (captured.init.headers as Record<string, string>).authorization,
+        "Bearer ingest-token",
+      );
+      const body = JSON.parse(String(captured?.init.body));
+      assert.equal(body.repositoryUrl, "https://github.com/Yumekaz/Domino");
+      assert.equal(body.actionsUrl, input.actionsUrl);
+      assert.equal(body.result.snapshotSha, SHA_B);
+      assert.deepEqual(body.result.changedFiles, ["src/auth.ts"]);
+      assert.equal(
+        domino?.runUrl,
+        "https://app.domino.example/app/repositories/repo-id/pr?run=run-id",
+      );
+    } finally {
+      clearEnv();
+    }
+  });
+
+  it("never fails the workflow when configuration or the API is unavailable", async () => {
+    clearEnv();
+    const skipped = await ingestDomino(input);
+    assert.match(skipped?.warning ?? "", /DOMINO_API_URL is not configured/);
+
+    process.env.DOMINO_API_URL = "https://domino.example";
+    try {
+      const noToken = await ingestDomino(input);
+      assert.match(noToken?.warning ?? "", /DOMINO_API_TOKEN is not configured/);
+      process.env.DOMINO_API_TOKEN = "ingest-token";
+      const rejected = await ingestDomino(input, (async () =>
+        new Response(JSON.stringify({ code: "REPOSITORY_NOT_INDEXED" }), {
+          status: 409,
+        })) as typeof fetch);
+      assert.match(
+        rejected?.warning ?? "",
+        /Domino ingestion failed \(409 REPOSITORY_NOT_INDEXED\)/,
+      );
+      const offline = await ingestDomino(input, (async () => {
+        throw new Error("offline");
+      }) as typeof fetch);
+      assert.match(offline?.warning ?? "", /Domino ingestion failed/);
+      assert.equal(offline?.runUrl, undefined);
+    } finally {
+      clearEnv();
+    }
+  });
+});
+
 describe("Workflow security properties", () => {
   const workflow = readFileSync(
     new URL("../../../.github/workflows/pr-impact.yml", import.meta.url),
@@ -258,7 +378,10 @@ describe("Workflow security properties", () => {
     assert.match(workflow, /permissions:\s*\n\s*contents: read\s*\n\s*pull-requests: read/);
     assert.doesNotMatch(workflow, /write/);
     assert.match(workflow, /persist-credentials: false[\s\S]*persist-credentials: false/);
-    assert.doesNotMatch(workflow, /secrets\./);
+    assert.doesNotMatch(workflow, /secrets\.(?!DOMINO_API_TOKEN)/);
+    assert.match(workflow, /secrets\.DOMINO_API_TOKEN/);
+    assert.match(workflow, /vars\.DOMINO_API_URL/);
+    assert.match(workflow, /vars\.DOMINO_WEB_URL/);
   });
 
   it("pins actions and installs only the analyzer with ignored scripts", () => {

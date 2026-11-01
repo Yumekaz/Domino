@@ -58,5 +58,8 @@ describe('Explicit development fixture integration shapes', () => {
     await expect(fixtureRequest(`${root}/pr-check`, post({ prNumber: 123 }))).rejects.toMatchObject(
       { code: 'FIXTURE_INPUT_UNSUPPORTED' },
     );
+    await expect(fixtureRequest(`${root}/analyses/latest?prNumber=12`)).rejects.toMatchObject({
+      code: 'FIXTURE_INPUT_UNSUPPORTED',
+    });
   });
 });
