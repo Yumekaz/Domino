@@ -1,5 +1,11 @@
 # Domino demo plan
 
+## Current local presentation startup
+
+Run `npm run demo` from the repository root with the existing ignored `.env` configured. Open `http://127.0.0.1:5173`; `npm run demo:doctor` verifies local readiness. `npm run demo:stop` stops the owned app processes while preserving PostgreSQL and indexed data. The launcher builds the live production frontend, checks fixture/credential exclusion, and manages the API and both worker queues. See [LOCAL_READINESS.md](LOCAL_READINESS.md) for the final acceptance record.
+
+No hosted deployment or public sample publication is part of this pass. Keep the prepared sample local, as the user requested. Present genuine public repository data and its actual partial-coverage notes. A pre-indexed repository is a practical network precaution; public import has also been exercised on multiple repositories.
+
 ## Rehearsed public-repository walkthrough
 
 The following steps use real indexed data, not a fixture. The source and the
@@ -28,6 +34,7 @@ before the demo and check the snapshot SHA and coverage shown in the app.
    were separate historical associations. Inspect an actual source link.
 5. Open `index.js` in the graph, use the accessible record list to inspect a
    connection, and show the risk view's observed-contributor caveats.
+6. In PR checks, request public `yocto-queue` PR **12**. The registered worker now analyzes its exact head independently of the default branch index. A verified local run used head `87d4a591b6584b9120a16daea822c919ff36c1ee` and base `0ac610dfa4e5cbd929b2e9b8fc34f5417f2f788b`, reported partial structural coverage and retained the workspace snapshot. Inspect actual SHAs and warnings because upstream revisions can change. Failed/cancelled runs have a retry control.
 
 The validator requires each returned claim to be a complete source sentence from every
 cited source and also checks citation membership and conservative text support.
@@ -42,9 +49,7 @@ structural imports with **partial** coverage because its extended TypeScript
 configuration was unavailable. A three-hop neighborhood of `source/core/Ky.ts`
 showed 79 records and 275 relationships; the graph is bounded, not a complete
 repository-wide map. Search results are paginated: use **Load more starting
-points** if a file is preceded by many historical revisions. Initial layout
-changes can still pause briefly on this machine; test the actual presentation
-hardware before relying on this larger view.
+points** if a file is preceded by many historical revisions. Spatial arrangement runs in a Web Worker; node/curve initialization is now progressive. Repeated production first-use measurements removed the earlier 300+ ms stall. Use **Expand map**, zoom to readable labels, and inspect individual records. Keyboard records/relationships and source connections/proofs have explicit “show more” controls. See [the measured startup fix](frontend/network/STARTUP_PERFORMANCE.md) for results and limits.
 
 Two additional public repositories were checked on 31 October 2026:
 
@@ -64,14 +69,11 @@ before the p-limit import. This is not proof that every public repository,
 language, browser or network will work. Do not treat a stale manual PR run as
 a fresh impact report: refreshing the default branch may not index the PR head.
 
-The user has deferred automatic GitHub-summary work for this pass. The local
-walkthrough does not establish a hosted deployment, a full browser/accessibility
-audit, or performance for large real graphs. The longer matrix below retains
-historical acceptance criteria and earlier state notes for context.
+Optional local Actions observation is now implemented and was verified against an existing successful public `pr-impact.yml` run. Its genuine URL is retained and its report is explicitly labelled as locally recomputed. The sample was not published. This does not establish a hosted event-ingestion service. The longer matrix below retains historical acceptance criteria and earlier state notes for context.
 
-**Latest live proof:** see [Live workspace validation](LIVE_WORKSPACE_VALIDATION.md) for real browser-to-backend import, GPT-6 Luna, impact/source inspection, contributor-history replay and reindex verification. The older status notes below are historical; hosted delivery and broad performance/accessibility acceptance remain open. Automatic summary integration is deferred by the user's current instruction.
+**Latest live proof:** see [Local readiness](LOCAL_READINESS.md) for current PR-head queues, recovery and desktop review, and [Live workspace validation](LIVE_WORKSPACE_VALIDATION.md) for earlier contributor-history replay and reindex evidence. The original status matrix below is historical. Hosted delivery and broad cross-engine/assistive-technology acceptance are not claimed.
 
-Status: **integration complete, live acceptance pending.** This plan covers the integrated
+Historical baseline status: **integration complete, live acceptance pending.** The following original matrix covers the integrated
 A/B/C backend and shared-contract frontend on `codex/backend-integration`. The code, tests, local
 analyzer dry run and fixture browser journeys pass; a fresh live import, live model answer, live
 PR Actions run, deployment and performance/browser acceptance remain required gates. Fixture-mode UI

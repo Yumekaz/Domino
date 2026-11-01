@@ -117,7 +117,7 @@
 }
 .studio-modes > button > span {
   font: 9px 'IBM Plex Mono';
-  color: #637e9e;
+  color: #8ca7c9;
 }
 .studio-modes > button[aria-pressed='true'] {
   background: #223f66;
@@ -387,7 +387,7 @@
 }
 .lens-location > time {
   font: 10px 'IBM Plex Mono';
-  color: #66735e;
+  color: #56634e;
 }
 .lens-document > footer {
   display: flex;
@@ -612,6 +612,28 @@
   border-right: 1px solid #2e4665;
   padding: 21px 13px;
 }
+@media (min-width: 901px) {
+  .knowledge-ledger,
+  .desktop-workspace .impact-results,
+  .desktop-workspace .investigation-split.has-inspector {
+    max-height: min(78svh, 850px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .ledger-files,
+  .ledger-reading,
+  .desktop-workspace .impact-files,
+  .desktop-workspace .impact-proof,
+  .desktop-workspace .investigation-split.has-inspector > .history-result-pane,
+  .desktop-workspace .investigation-split.has-inspector > .entity-inspector {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .investigation-split.has-inspector > .entity-inspector {
+    align-self: stretch;
+  }
+}
 .ledger-files > header {
   display: flex;
   align-items: center;
@@ -659,7 +681,7 @@
 .ledger-files code {
   display: block;
   font-size: 9px;
-  color: #819ec2;
+  color: #9bb6d8;
   margin-top: 8px;
   overflow-wrap: anywhere;
 }

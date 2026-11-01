@@ -6,11 +6,22 @@ import {
   graphSchema,
   impactRequestSchema,
   impactSchema,
+  analysisSchema,
+  repositoryPathSchema,
 } from "../../packages/contracts/src/index.ts";
 
 const uuid = "1fb0a804-339c-448e-af4a-e937e8e0e3ad";
 const sha = "0123456789abcdef0123456789abcdef01234567";
 describe("API contract boundaries", () => {
+  it("rejects absolute Windows paths and stale or wrong-head PR results", () => {
+    expect(repositoryPathSchema.safeParse("C:/Windows/win.ini").success).toBe(false);
+    const result = { changedFiles: ["src/auth.ts"], snapshotSha: sha, affected: [], warnings: [], truncated: false };
+    const run = { id: uuid, status: "completed", prNumber: 1, baseSha: "a".repeat(40), headSha: sha, event: "manual", createdAt: new Date().toISOString(), stale: false, warnings: [], result };
+    expect(analysisSchema.safeParse(run).success).toBe(true);
+    expect(analysisSchema.safeParse({ ...run, stale: true }).success).toBe(false);
+    expect(analysisSchema.safeParse({ ...run, headSha: "b".repeat(40) }).success).toBe(false);
+    expect(analysisSchema.safeParse({ ...run, status: "running" }).success).toBe(false);
+  });
   it("accepts only plain github.com repository URLs", () => {
     expect(canonicalGithubUrl("https://github.com/example/repo.git")).toBe(
       "https://github.com/example/repo",

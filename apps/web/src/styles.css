@@ -341,6 +341,7 @@ progress {
   padding-top: 3px;
 }
 .source-item > div {
+  overflow-wrap: anywhere;
   min-width: 0;
 }
 .source-item h4 {

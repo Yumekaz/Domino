@@ -8,6 +8,7 @@ export const DEFAULT_ANALYZER_TIMEOUT_MS = 120_000;
 export const DEFAULT_MAX_ANALYZER_OUTPUT_BYTES = 64 * 1024 * 1024;
 
 export type AnalyzerProcessOptions = {
+  signal?: AbortSignal;
   cwd: string;
   timeoutMs: number;
   maxBufferBytes: number;
@@ -97,6 +98,7 @@ export function createNodeAnalyzerProcessRunner(
           shell: false,
           windowsHide: true,
           env: options.env,
+          ...(options.signal ? { signal: options.signal } : {}),
         },
         (error, stdout, stderr) => {
           if (error) {
@@ -124,6 +126,7 @@ export function createNodeAnalyzerProcessRunner(
 }
 
 export async function analyzeCheckout(input: {
+  signal?: AbortSignal;
   binaryPath?: string;
   scriptPath?: string;
   workingDirectory: string;
@@ -166,6 +169,7 @@ export async function analyzeCheckout(input: {
     timeoutMs: input.timeoutMs ?? DEFAULT_ANALYZER_TIMEOUT_MS,
     maxBufferBytes: input.maxBufferBytes ?? DEFAULT_MAX_ANALYZER_OUTPUT_BYTES,
     env: buildAnalyzerEnvironment(),
+    ...(input.signal ? { signal: input.signal } : {}),
   });
   return normalizeDependencyCruiserOutput(parseDependencyCruiserJson(stdout), input.metadata);
 }

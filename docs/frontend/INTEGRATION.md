@@ -6,7 +6,7 @@ The web client now imports the shared runtime Zod contracts from `packages/contr
 
 The backend composes role A's persistence/queue/API, role B's history/retrieval/evidence pipeline and role C's dependency-cruiser impact engine. During import, the worker analyses the exact-SHA checkout, stores snapshot-scoped dependencies and source-backed `IMPORTS` edges, and publishes structural coverage. The API exposes deterministic impact over those observations and a manual PR-analysis run service. C's read-only `pull_request` workflow produces the automatic PR step summary independently.
 
-Live model synthesis, a live public PR Actions run, a fresh live import through the integrated worker, deployment and a complete browser-to-live-backend journey remain unverified. Fixture and browser checks are not substitutes for those gates.
+Real public imports, model-backed supported/partial answers, unsupported questions, source inspection, impact, graph, contributor-risk and fresh PR-head worker analysis have been exercised locally. Current acceptance and remaining limits are recorded in [LOCAL_READINESS.md](../LOCAL_READINESS.md); older validation documents retain their historical results. Deployment is excluded and mobile remains deferred.
 
 ## Endpoint wiring
 
@@ -23,7 +23,7 @@ Live model synthesis, a live public PR Actions run, a fresh live import through 
 | POST `/repositories/:repoId/ask` | Claim/source report and explicit not-found | Shared answer contract; `unavailable` is rendered as a synthesis outage, not not-found |
 | POST `/repositories/:repoId/impact` | Changed files or proposed diff + maxDepth | Shared impact contract; structural paths and separate co-change metadata |
 | GET `/repositories/:repoId/knowledge-risk` | Scoped authorship + evidence | Shared risk contract; cursor pagination, nullable dates, lower-bound counts and caveats |
-| POST `/repositories/:repoId/pr-check` | Explicit PR analysis request | Resolves exact PR base/head; persists a run; stale with no result when snapshot ≠ head |
+| POST `/repositories/:repoId/pr-check` | Explicit PR analysis request | Resolves exact PR base/head, atomically enqueues `analysis.impact`, publishes an isolated structural snapshot; withholds a result if the PR advances |
 | GET `/repositories/:repoId/analysis/:runId` | Run status, base/head/event, result, actual Actions link | Shared analysis contract; polls every 2.5s until terminal/error |
 
 ## Behaviour and limits
@@ -34,13 +34,11 @@ Live model synthesis, a live public PR Actions run, a fresh live import through 
 - Risk dates may be null. Percentages are shares of returned contributor entries, never knowledge scores. Cursor pagination is explicit.
 - Co-change sample/window are displayed only when returned. Historical association stays outside structural paths.
 - A Vite dev proxy can attach a server-side `DOMINO_API_TOKEN`; the token is not exposed in `VITE_` variables or the browser bundle. A deployed static host needs an equivalent reverse proxy.
-- No repository-list or analysis-run-list endpoint exists; the browser-local recent list and explicit run-ID lookup remain intentional.
+- No repository-list or analysis-run-list endpoint exists. The repository response may include at most five `recentAnalyses` summaries; PR checks poll that response every 10s and use the existing explicit run-ID lookup. The browser-local repository list remains a convenience, not an authoritative inventory.
+- Failed/cancelled PR runs can be retried. Retrying the same run invalidates its cached terminal response so status polling resumes. PR snapshots never replace the default history snapshot.
+- Optional Actions observation discovers genuine successful public workflow runs and queues local recomputation. The UI labels `actions_observed` explicitly and retains the real Actions URL; it never claims to have ingested the workflow's artifact.
+- Spatial graph arrangement runs in a Web Worker with a bounded fallback and cancellation. The renderer still uses only actual API records and relationships. Source inspectors progressively reveal large returned source lists; all sources remain accessible.
 
-## Remaining acceptance
+## Acceptance boundaries
 
-1. Fresh live import through the integrated worker against a public repository, including structural coverage and a persisted graph after restart.
-2. A live model-generated supported answer and semantic-support validation; an unsupported question and model outage still need live confirmation.
-3. A real opened/synchronized PR Actions summary from the merged workflow, with two different head SHAs.
-4. A manual PR run against a snapshot whose SHA equals the PR head (otherwise the UI correctly reports stale).
-5. Deployment, reverse-proxy authentication, CORS and HTTPS checks.
-6. Representative large-graph/foreground motion profiling, cross-browser/accessibility review and the deferred mobile acceptance.
+See [local readiness](../LOCAL_READINESS.md) for the latest commands, real repository revisions, browser evidence, recovery tests and performance observations. A passing automated accessibility scan is not a complete assistive-technology audit. In-app Chromium coverage does not establish compatibility with other engines. Model validation remains conservative and does not prove that a source quote represents its complete context. Hosted HTTPS/operations and deferred mobile acceptance are not claimed.

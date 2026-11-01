@@ -12,6 +12,58 @@ export const graphRecordColors: Record<string, string> = {
   Module: '#86b6e5',
   Repository: '#a4c9e5',
 };
+
+/** Selection classes are known before drawing, so first paint need not rasterize two styles. */
+export function networkClasses(
+  graph: Graph,
+  selection: { kind: 'node' | 'edge'; id: string } | null,
+  edgeLabels: boolean,
+) {
+  const nodes = new Set<string>(),
+    edges = new Set<string>();
+  let found = false;
+  if (selection?.kind === 'node' && graph.nodes.some((node) => node.id === selection.id)) {
+    found = true;
+    nodes.add(selection.id);
+    for (const edge of graph.edges)
+      if (edge.source === selection.id || edge.target === selection.id) {
+        edges.add(edge.id);
+        nodes.add(edge.source);
+        nodes.add(edge.target);
+      }
+  } else if (selection?.kind === 'edge') {
+    const edge = graph.edges.find((edge) => edge.id === selection.id);
+    if (edge) {
+      found = true;
+      edges.add(edge.id);
+      nodes.add(edge.source);
+      nodes.add(edge.target);
+    }
+  }
+  const result = new Map<string, string>();
+  for (const node of graph.nodes)
+    result.set(
+      `node:${node.id}`,
+      [
+        found ? (nodes.has(node.id) ? 'path-focus' : 'dimmed') : '',
+        selection?.kind === 'node' && selection.id === node.id ? 'is-selected' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+  for (const edge of graph.edges)
+    result.set(
+      `edge:${edge.id}`,
+      [
+        found ? (edges.has(edge.id) ? 'path-focus' : 'dimmed') : '',
+        selection?.kind === 'edge' && selection.id === edge.id ? 'is-selected' : '',
+        edgeLabels ? 'show-relation-labels' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+  return result;
+}
 /** Presentation metadata uses only the visible returned neighborhood. */
 export function networkElements(graph: Graph, rootId?: string) {
   const degrees = new Map(graph.nodes.map((node) => [node.id, 0]));

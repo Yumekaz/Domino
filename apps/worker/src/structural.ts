@@ -18,6 +18,7 @@ type StructuralHookInput = {
   snapshotId: string;
   headSha: string;
   checkout: CheckoutHandle;
+  signal?: AbortSignal;
 };
 
 /**
@@ -34,6 +35,7 @@ export function createStructuralAnalysis(
       repositoryId: String(context.githubId),
       snapshotSha: input.headSha,
       timeoutMs: 120_000,
+      signal: input.signal,
     });
     const imports: StructuralImportRecord[] = normalized.imports.map((item) => ({
       importer: item.importer,

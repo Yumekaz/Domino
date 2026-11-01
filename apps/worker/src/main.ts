@@ -1,5 +1,7 @@
 import { pathToFileURL } from "node:url";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 import { PgBoss } from "pg-boss";
 import { createPool } from "../../../packages/database/src/index.ts";
 import {
@@ -7,16 +9,30 @@ import {
   type HistoryJobPayload,
 } from "../../../packages/database/src/jobs.ts";
 import { scopeHistoryStore } from "../../../packages/database/src/history-port.ts";
-import { historyJobSchema } from "../../../packages/contracts/src/index.ts";
+import {
+  historyJobSchema,
+  analysisJobSchema,
+} from "../../../packages/contracts/src/index.ts";
+import {
+  ANALYSIS_QUEUE,
+  type AnalysisJobPayload,
+} from "../../../packages/database/src/analysis-jobs.ts";
+import { createPrAnalysisProcessor } from "./pr-analysis.ts";
+import type { HistoryStore } from "../../../packages/core/history/src/ports.ts";
+import { syncObservedActions } from "./actions-sync.ts";
 import { createStructuralAnalysis } from "./structural.ts";
+import { analyzeCodeSymbols } from "../../../packages/code-intelligence/src/cbm.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
+const workerInstance = process.env.DOMINO_WORKER_INSTANCE || randomUUID();
+const shutdown = new AbortController();
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
 const pool = createPool(databaseUrl);
 const boss = new PgBoss(databaseUrl);
 boss.on("error", (error) => console.error("Queue error:", error.message));
 await boss.start();
 await boss.createQueue(HISTORY_QUEUE, { retryLimit: 1, expireInSeconds: 600 });
+await boss.createQueue(ANALYSIS_QUEUE, { retryLimit: 0, expireInSeconds: 360 });
 
 const load = (path: string) =>
   import(pathToFileURL(resolve(process.cwd(), path)).href);
@@ -52,6 +68,21 @@ const baseStore = new modules.postgres.PostgresHistoryStore(bClient) as Record<
   unknown
 >;
 const github = modules.github.createOctokitApiFromEnv();
+const processPrAnalysis = createPrAnalysisProcessor({
+  pool,
+  store: baseStore as unknown as HistoryStore,
+  token: process.env.DOMINO_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN,
+  workerInstance,
+  shutdownSignal: shutdown.signal,
+});
+await boss.work<AnalysisJobPayload>(
+  ANALYSIS_QUEUE,
+  { batchSize: 1 },
+  async (jobs) => {
+    for (const job of jobs)
+      await processPrAnalysis(analysisJobSchema.parse(job.data), job.id);
+  },
+);
 
 await boss.work<HistoryJobPayload>(
   HISTORY_QUEUE,
@@ -111,8 +142,8 @@ await boss.work<HistoryJobPayload>(
         continue;
       }
       await pool.query(
-        "UPDATE import_jobs SET status='running',phase='validating',updated_at=now() WHERE id=$1 AND repo_id=$2",
-        [job.jobId, job.repoId],
+        "UPDATE import_jobs SET status='running',phase='validating',worker_instance=$3,updated_at=now() WHERE id=$1 AND repo_id=$2",
+        [job.jobId, job.repoId, workerInstance],
       );
       const store = scopeHistoryStore(baseStore, pool, {
         repoId: job.repoId,
@@ -131,6 +162,23 @@ await boss.work<HistoryJobPayload>(
           repoId: job.repoId,
           githubId: job.githubId,
         }),
+        ...(process.env.DOMINO_CODE_INTELLIGENCE === "cbm"
+          ? {
+              codeIntelligence: (
+                input: Omit<
+                  Parameters<typeof analyzeCodeSymbols>[0],
+                  "binary" | "cacheDir" | "run"
+                >,
+              ) =>
+                analyzeCodeSymbols({
+                  ...input,
+                  binary: process.env.DOMINO_CBM_BINARY ?? "",
+                  cacheDir:
+                    process.env.DOMINO_CBM_CACHE_DIR ||
+                    resolve(homedir(), ".domino-cbm"),
+                }),
+            }
+          : {}),
       });
       try {
         await handler.handle(
@@ -142,7 +190,10 @@ await boss.work<HistoryJobPayload>(
             snapshotId: job.snapshotId,
           },
           {
-            signal: AbortSignal.timeout(540_000),
+            signal: AbortSignal.any([
+              shutdown.signal,
+              AbortSignal.timeout(540_000),
+            ]),
             progress: async (event: { phase: string; warnings: string[] }) => {
               await pool.query(
                 "UPDATE import_jobs SET phase=$3,warnings=$4::jsonb,updated_at=now() WHERE id=$1 AND repo_id=$2",
@@ -183,13 +234,15 @@ await boss.work<HistoryJobPayload>(
           typeof candidate === "string" && /^[A-Z][A-Z_]{2,63}$/.test(candidate)
             ? candidate
             : "IMPORT_FAILED";
-        console.error(`History import ${job.jobId} failed: ${code}`);
+        const terminal = shutdown.signal.aborted ? "cancelled" : "failed";
+        console.error(`History import ${job.jobId} ${terminal}: ${code}`);
         await pool.query(
-          "UPDATE import_jobs SET status='failed',phase='failed',error=$3,updated_at=now() WHERE id=$1 AND repo_id=$2",
+          "UPDATE import_jobs SET status=$4,phase=$4,error=$3,worker_instance=NULL,updated_at=now() WHERE id=$1 AND repo_id=$2",
           [
             job.jobId,
             job.repoId,
             `Import failed (${code}). Check server logs and retry.`,
+            terminal,
           ],
         );
       }
@@ -197,11 +250,58 @@ await boss.work<HistoryJobPayload>(
   },
 );
 console.log("Domino history worker is listening for jobs.");
+let actionsTimer: ReturnType<typeof setInterval> | undefined;
+let observing = false;
+const actionsToken =
+  process.env.DOMINO_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN;
+if (process.env.DOMINO_ACTIONS_SYNC === "1" && actionsToken) {
+  const observe = async () => {
+    if (observing || shutdown.signal.aborted) return;
+    observing = true;
+    try {
+      const result = await syncObservedActions({
+        pool,
+        boss,
+        token: actionsToken,
+        signal: shutdown.signal,
+      });
+      if (result.queued)
+        console.log(
+          `Observed GitHub Actions: queued ${result.queued} local exact-head check(s).`,
+        );
+    } catch {
+      if (!shutdown.signal.aborted)
+        console.warn(
+          "GitHub Actions observation is temporarily unavailable; local analyses remain available.",
+        );
+    } finally {
+      observing = false;
+    }
+  };
+  actionsTimer = setInterval(() => void observe(), 60000);
+  void observe();
+}
+process.send?.({ type: "domino.ready", role: "worker" });
+let stopping = false;
 async function stop() {
+  if (stopping) return;
+  stopping = true;
+  shutdown.abort();
+  if (actionsTimer) clearInterval(actionsTimer);
   await boss.stop({ graceful: true, timeout: 30_000 });
   await bClient.close();
   await pool.end();
+  if (process.connected) process.disconnect();
 }
+process.on("message", (message) => {
+  if (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    message.type === "domino.shutdown"
+  )
+    void stop();
+});
 process.once("SIGINT", () => {
   void stop();
 });

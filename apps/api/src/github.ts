@@ -172,12 +172,18 @@ export async function resolvePublicRepository(
 }
 
 export interface PullRequestRecord {
+  repositoryId?: number;
   number: number;
   baseSha: string;
   headSha: string;
   prUrl: string;
   changedFiles: string[];
   truncated: boolean;
+  fileChanges?: {
+    filename: string;
+    previousFilename: string | null;
+    status: string;
+  }[];
 }
 
 const prResponse = z.object({
@@ -204,7 +210,7 @@ function githubHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
-async function readGithubJson(
+export async function readGithubJson(
   path: string,
   headers: Record<string, string>,
   notFoundCode = "SOURCE_NOT_FOUND",
@@ -288,6 +294,45 @@ async function readGithubJson(
   }
 }
 
+const workflowRunsSchema = z.object({
+  workflow_runs: z
+    .array(
+      z.object({
+        id: z.number().int().positive().safe(),
+        html_url: z.string(),
+        head_sha: shaSchema,
+        event: z.string(),
+        path: z.string(),
+        conclusion: z.string().nullable(),
+        run_attempt: z.number().int().positive().default(1),
+        pull_requests: z
+          .array(z.object({ number: z.number().int().positive() }))
+          .max(20),
+      }),
+    )
+    .max(5),
+});
+
+export async function listDominoWorkflowRuns(repoUrl: string, token?: string) {
+  const repository = await resolvePublicRepository(repoUrl, token);
+  const response = await readGithubJson(
+    `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/actions/workflows/pr-impact.yml/runs?event=pull_request&status=completed&per_page=5`,
+    githubHeaders(token),
+    "WORKFLOW_NOT_CONFIGURED",
+  );
+  const runs = workflowRunsSchema
+    .parse(response)
+    .workflow_runs.filter(
+      (run) =>
+        run.event === "pull_request" &&
+        run.conclusion === "success" &&
+        run.path.split("@")[0] === ".github/workflows/pr-impact.yml" &&
+        run.html_url.toLowerCase() ===
+          `${repository.url}/actions/runs/${run.id}`.toLowerCase(),
+    );
+  return { repositoryId: repository.githubId, runs };
+}
+
 /** Resolves a public pull request's exact revisions and bounded changed-file list. */
 export async function resolvePullRequest(
   repoUrl: string,
@@ -303,6 +348,7 @@ export async function resolvePullRequest(
     );
   const [, , , owner, name] = canonical.split("/");
   const headers = githubHeaders(token);
+  const repository = await resolvePublicRepository(canonical, token);
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls/${prNumber}`;
   const parsedPr = prResponse.safeParse(
     await readGithubJson(base, headers, "PR_NOT_FOUND"),
@@ -314,13 +360,16 @@ export async function resolvePullRequest(
       "GitHub returned incomplete pull-request metadata.",
     );
   const pr = parsedPr.data;
-  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(pr.html_url))
+  if (
+    pr.html_url.toLowerCase() !== `${canonical}/pull/${prNumber}`.toLowerCase()
+  )
     throw new ApiFailure(
       502,
       "GITHUB_INVALID_RESPONSE",
       "GitHub returned an unexpected pull-request URL.",
     );
   const changedFiles = new Set<string>();
+  const fileChanges: NonNullable<PullRequestRecord["fileChanges"]> = [];
   let truncated = false;
   for (let page = 1; page <= 3; page++) {
     const files = prFilesResponse.parse(
@@ -332,17 +381,43 @@ export async function resolvePullRequest(
     );
     for (const file of files) {
       const path = repositoryPathSchema.safeParse(file.filename);
-      if (path.success) changedFiles.add(path.data);
+      const previous = file.previous_filename
+        ? repositoryPathSchema.safeParse(file.previous_filename)
+        : null;
+      if (!path.success || (previous && !previous.success))
+        throw new ApiFailure(
+          502,
+          "GITHUB_INVALID_RESPONSE",
+          "GitHub returned an unsafe changed-file path.",
+        );
+      changedFiles.add(path.data);
+      fileChanges.push({
+        filename: path.data,
+        previousFilename: previous?.data ?? null,
+        status: file.status,
+      });
     }
     if (files.length < 100) break;
     if (page === 3) truncated = true;
   }
+  const confirmed = prResponse.parse(
+    await readGithubJson(base, headers, "PR_NOT_FOUND"),
+  );
+  if (confirmed.head.sha !== pr.head.sha || confirmed.base.sha !== pr.base.sha)
+    throw new ApiFailure(
+      409,
+      "INDEX_STALE",
+      "The pull request changed during lookup. Request analysis again.",
+      true,
+    );
   return {
+    repositoryId: repository.githubId,
     number: pr.number,
     baseSha: pr.base.sha,
     headSha: pr.head.sha,
     prUrl: pr.html_url,
     changedFiles: [...changedFiles].sort(),
     truncated,
+    fileChanges,
   };
 }

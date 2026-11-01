@@ -140,7 +140,7 @@
   font-size: 11px;
 }
 .workspace-breadcrumb {
-  color: #5b6a7c;
+  color: #8796aa;
 }
 .topbar-search {
   margin-left: auto;
@@ -1648,13 +1648,13 @@
   box-shadow: 0 6px 20px #1649ed23;
 }
 .impact-map-record.changed > span {
-  color: #bacdff;
+  color: #edf2ff;
 }
 .impact-map-record.changed > strong {
   color: white;
 }
 .impact-map-record.changed > small {
-  color: #c3d2ff;
+  color: #edf2ff;
 }
 .impact-map-record.on-path:not(.changed) {
   background: #eef4ff;

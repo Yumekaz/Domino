@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -66,6 +66,58 @@ export function EntityIcon({ kind, size = 18 }: { kind: string; size?: number })
               : Braces;
   return <Icon size={size} />;
 }
+function EntityConnections({
+  detail,
+  onFollow,
+}: {
+  detail: Awaited<ReturnType<typeof api.entity>>;
+  onFollow: (id: string) => void;
+}) {
+  const [neighbors, setNeighbors] = useState(12);
+  const [proofs, setProofs] = useState(6);
+  return (
+    <>
+      <SectionLabel>Follow the relationships</SectionLabel>
+      <div className="neighbor-list">
+        {detail.neighbors.slice(0, neighbors).map((n) => (
+          <button key={n.id} onClick={() => onFollow(n.id)}>
+            <EntityIcon kind={n.kind} />
+            <span>{n.title}</span>
+            <ChevronRight size={15} />
+          </button>
+        ))}
+      </div>
+      {neighbors < detail.neighbors.length && (
+        <Button
+          className="pagination-load-more"
+          variant="secondary"
+          onClick={() => setNeighbors(neighbors + 12)}
+        >
+          Show more connected records ({neighbors} of {detail.neighbors.length})
+        </Button>
+      )}
+      {detail.edges.slice(0, proofs).map((edge) => (
+        <div className="relation-proof" key={edge.id}>
+          <Badge tone={edge.verification === 'inferred' ? 'orange' : 'neutral'}>
+            {edge.verification}
+          </Badge>
+          <code>{edge.kind}</code>
+          {edge.evidenceExcerpt && <p>{edge.evidenceExcerpt}</p>}
+          <SourceLink url={edge.sourceUrl}>Relationship provenance</SourceLink>
+        </div>
+      ))}
+      {proofs < detail.edges.length && (
+        <Button
+          className="pagination-load-more"
+          variant="secondary"
+          onClick={() => setProofs(proofs + 6)}
+        >
+          Show more relationship proofs ({proofs} of {detail.edges.length})
+        </Button>
+      )}
+    </>
+  );
+}
 export function EntityInspector({
   entityId,
   onClose,
@@ -81,13 +133,14 @@ export function EntityInspector({
       panel.current?.scrollIntoView({ block: 'start' });
   }, [entityId]);
   const { repoId, repository, setFocus, path } = useRepo();
+  const location = useLocation();
   const query = useQuery({
     queryKey: ['entity', repoId, repository.snapshot?.id, entityId],
     queryFn: ({ signal }) => api.entity(repoId, entityId, signal, repository.snapshot?.id),
     enabled: !!entityId,
   });
   return (
-    <aside ref={panel} className="entity-inspector" aria-label="Entity evidence">
+    <aside ref={panel} className="entity-inspector" aria-label="Entity evidence" tabIndex={0}>
       <div className="inspector-heading">
         <Eyebrow>EVIDENCE INSPECTOR</Eyebrow>
         {onClose && (
@@ -108,33 +161,15 @@ export function EntityInspector({
           {query.data.entity.date && <time>{query.data.entity.date}</time>}
           {query.data.entity.excerpt && <p>{query.data.entity.excerpt}</p>}
           <SourceLink url={query.data.entity.sourceUrl}>Open original record</SourceLink>
-          <SourceList sources={query.data.sources} />
-          <SectionLabel>Follow the relationships</SectionLabel>
-          <div className="neighbor-list">
-            {query.data.neighbors.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => {
-                  setFocus(n.id);
-                  onNavigate?.(n.id);
-                }}
-              >
-                <EntityIcon kind={n.kind} />
-                <span>{n.title}</span>
-                <ChevronRight size={15} />
-              </button>
-            ))}
-          </div>
-          {query.data.edges.map((edge) => (
-            <div className="relation-proof" key={edge.id}>
-              <Badge tone={edge.verification === 'inferred' ? 'orange' : 'neutral'}>
-                {edge.verification}
-              </Badge>
-              <code>{edge.kind}</code>
-              {edge.evidenceExcerpt && <p>{edge.evidenceExcerpt}</p>}
-              <SourceLink url={edge.sourceUrl}>Relationship provenance</SourceLink>
-            </div>
-          ))}
+          <SourceList key={entityId} sources={query.data.sources} initialLimit={6} />
+          <EntityConnections
+            key={entityId}
+            detail={query.data}
+            onFollow={(id) => {
+              setFocus(id);
+              onNavigate?.(id);
+            }}
+          />
           <Link
             className="button button-secondary"
             to={`${path('graph').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}
@@ -147,12 +182,14 @@ export function EntityInspector({
           >
             <Sparkles size={16} /> Ask about this record
           </Link>
-          <Link
-            className="button button-secondary"
-            to={`${path('history').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}
-          >
-            <History size={16} /> Open connected history
-          </Link>
+          {location.pathname !== path('history').split('?')[0] && (
+            <Link
+              className="button button-secondary"
+              to={`${path('history').split('?')[0]}?focus=${encodeURIComponent(entityId)}`}
+            >
+              <History size={16} /> Open connected history
+            </Link>
+          )}
         </>
       )}
     </aside>
@@ -218,7 +255,7 @@ export function HistoryPage() {
         </label>
       </div>
       <div className={`investigation-split ${focus ? 'has-inspector' : ''}`}>
-        <section>
+        <section className="history-result-pane" aria-label="Indexed history records" tabIndex={0}>
           {query.isPending ? (
             <Loading text="Finding connected records" />
           ) : query.isError ? (
@@ -255,6 +292,7 @@ export function HistoryPage() {
           )}
           {query.hasNextPage && (
             <Button
+              className="pagination-load-more"
               variant="secondary"
               disabled={query.isFetchingNextPage}
               onClick={() => query.fetchNextPage()}
@@ -397,7 +435,7 @@ export function AskPage() {
                   <p className="answer-summary">
                     {ask.data.status === 'not_found'
                       ? 'No supporting project history found.'
-                      : ask.data.answer ?? 'No answer text was returned.'}
+                      : (ask.data.answer ?? 'No answer text was returned.')}
                   </p>
                   <div className="claim-list">
                     {ask.data.claims.map((claim, i) => (
@@ -517,7 +555,12 @@ export function ImpactResults({ result }: { result: Impact }) {
         </Empty>
       ) : (
         <div className="impact-results">
-          <div className="impact-files">
+          <div
+            className="impact-files"
+            role="region"
+            aria-label="Returned impact paths"
+            tabIndex={0}
+          >
             {result.affected.map((item) => {
               const display = impactPresentation(item, result.changedFiles);
               return (
@@ -540,7 +583,7 @@ export function ImpactResults({ result }: { result: Impact }) {
               );
             })}
           </div>
-          <section className="impact-proof">
+          <section className="impact-proof" aria-label="Selected impact evidence" tabIndex={0}>
             {active && presentation ? (
               <>
                 <Badge tone={presentation.kind === 'structural' ? 'blue' : 'orange'}>
@@ -916,6 +959,7 @@ export function RiskPage() {
           />
           {query.hasNextPage && (
             <Button
+              className="pagination-load-more"
               variant="secondary"
               disabled={query.isFetchingNextPage}
               onClick={() => query.fetchNextPage()}
@@ -930,17 +974,26 @@ export function RiskPage() {
 }
 export function PRPage() {
   const { repoId, repository } = useRepo();
+  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [number, setNumber] = useState('');
   const [lookup, setLookup] = useState('');
   const runId = params.get('run') || '';
+  const recent = useQuery({
+    queryKey: ['recent-analyses', repoId],
+    queryFn: ({ signal }) => api.repository(repoId, signal),
+    refetchInterval: 10000,
+  });
   const trigger = useMutation({
-    mutationFn: () => api.prCheck(repoId, Number(number)),
-    onSuccess: (d) =>
+    mutationFn: (prNumber: number) => api.prCheck(repoId, prNumber),
+    onSuccess: (d) => {
+      void queryClient.invalidateQueries({ queryKey: ['analysis', repoId, d.runId] });
+      void queryClient.invalidateQueries({ queryKey: ['recent-analyses', repoId] });
       setParams((p) => {
         p.set('run', d.runId);
         return p;
-      }),
+      });
+    },
   });
   const query = useQuery({
     queryKey: ['analysis', repoId, runId],
@@ -964,7 +1017,7 @@ export function PRPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            trigger.mutate();
+            trigger.mutate(Number(number));
           }}
         >
           <label htmlFor="pr-number">Pull request number</label>
@@ -1016,6 +1069,35 @@ export function PRPage() {
         Automatic checks require your repository’s GitHub Actions integration. Requesting an
         analysis here does not install a workflow or publish a PR comment.
       </p>
+      {!!recent.data?.recentAnalyses?.length && (
+        <section aria-label="Recent PR checks">
+          <SectionLabel>Recent checks · latest five</SectionLabel>
+          <div className="changed-file-list">
+            {recent.data.recentAnalyses.map((run) => (
+              <Button
+                key={run.id}
+                variant="secondary"
+                aria-pressed={run.id === runId}
+                onClick={() =>
+                  setParams((p) => {
+                    p.set('run', run.id);
+                    return p;
+                  })
+                }
+              >
+                #{run.prNumber} ·{' '}
+                {run.event === 'actions_observed' ? 'Actions observed' : run.event} · {run.status}{' '}
+                <Sha value={run.headSha} />
+              </Button>
+            ))}
+          </div>
+        </section>
+      )}
+      {recent.isError && (
+        <p className="field-hint">
+          Recent checks could not be refreshed. The explicit run lookup remains available.
+        </p>
+      )}
       {!runId ? (
         <div className="pr-empty">
           <GitPullRequest size={58} strokeWidth={1} />
@@ -1038,25 +1120,45 @@ export function PRPage() {
           <RevisionBridge run={query.data} />
           <Warnings
             warnings={[
-              ...query.data.warnings.map((warning) =>
-                warning.replace(
-                  'No impact result was substituted; refresh the index or request a new run.',
-                  'No impact result was substituted. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
+              ...query.data.warnings
+                .filter((warning) => !query.data.result?.warnings.includes(warning))
+                .map((warning) =>
+                  warning
+                    .replace(
+                      'No impact result was substituted; refresh the index or request a new run.',
+                      'No impact result was substituted. Request analysis again for the current PR head.',
+                    )
+                    .replace(
+                      'Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
+                      'Request analysis again for the current PR head. The main workspace index is preserved.',
+                    ),
                 ),
-              ),
               ...((query.data.stale ||
                 (query.data.result && query.data.result.snapshotSha !== query.data.headSha)) &&
               !query.data.warnings.some(
                 (warning) =>
-                  warning.includes('No impact result was substituted; refresh the index or request a new run.') ||
-                  warning.includes('Manual analysis requires a matching indexed revision;'),
+                  warning.includes(
+                    'No impact result was substituted; refresh the index or request a new run.',
+                  ) || warning.includes('Manual analysis requires a matching indexed revision;'),
               )
                 ? [
-                    'The analysis is stale relative to the PR head. Manual analysis requires a matching indexed revision; refreshing the default branch may not match this PR head.',
+                    'This saved run does not represent the current PR head. Request a new exact-head analysis; the main workspace index is preserved.',
                   ]
                 : []),
             ]}
           />
+          {(['failed', 'cancelled'].includes(query.data.status) || query.data.stale) && (
+            <Button
+              variant="secondary"
+              disabled={trigger.isPending}
+              onClick={() => trigger.mutate(query.data.prNumber)}
+            >
+              {trigger.isPending
+                ? 'Requesting…'
+                : `Analyze current head of PR #${query.data.prNumber}`}
+              <ArrowRight size={15} />
+            </Button>
+          )}
           {query.data.result ? (
             <>
               <SectionLabel>Changed files</SectionLabel>

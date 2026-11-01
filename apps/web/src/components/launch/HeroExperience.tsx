@@ -19,7 +19,10 @@ export default function HeroExperience() {
   const stage = Math.min(4, Math.floor(progress / 20));
   const setProgress = useCallback((p: number, commit = true) => {
     current.current = p;
-    if (slider.current) slider.current.value = String(p);
+    if (slider.current) {
+      slider.current.value = String(p);
+      slider.current.setAttribute('aria-valuenow', String(Math.round(p)));
+    }
     if (readout.current) readout.current.textContent = String(Math.round(p)).padStart(3, '0');
     if (commit) updateProgress(p);
   }, []);
@@ -156,6 +159,9 @@ export default function HeroExperience() {
               type="range"
               min="0"
               max="100"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
               ref={slider}
               defaultValue={0}
               onChange={(e) => {
@@ -177,7 +183,11 @@ export default function HeroExperience() {
             <RotateCcw size={15} />
           </button>
         </div>
-        <div className="chain-stations" aria-label="Explore the illustrative evidence chain">
+        <div
+          className="chain-stations"
+          role="group"
+          aria-label="Explore the illustrative evidence chain"
+        >
           {chapters.map((c, i) => (
             <button
               key={c.label}

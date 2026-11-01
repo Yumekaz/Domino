@@ -29,6 +29,8 @@ export interface CheckoutOptions {
   signal?: AbortSignal;
   gitBinary?: string;
   tempRoot?: string;
+  /** Trusted PR ref used only when the exact head is not directly fetchable. */
+  fetchRef?: string;
 }
 
 export interface RepoFileInfo {
@@ -70,6 +72,7 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 const WORKSPACE_PREFIX = "domino-history-";
 
 export async function checkoutRepository(options: CheckoutOptions): Promise<CheckoutHandle> {
+  if (options.fetchRef && !/^refs\/pull\/[1-9]\d{0,9}\/head$/.test(options.fetchRef)) throw new HistoryError("INVALID_REQUEST", "Unsupported checkout ref");
   const remote = parseGithubRemote(options.remoteUrl);
   const sha = assertFullSha(options.sha);
   const historyDepth = clampInt(options.historyDepth ?? DEFAULT_HISTORY_DEPTH, 1, 5_000);
@@ -173,7 +176,7 @@ export async function checkoutRepository(options: CheckoutOptions): Promise<Chec
         throw gitCommandFailure(exactFetch, "Fetch exact SHA");
       }
       const fallback = await runGit(
-        [...fetchArgs, "origin", "HEAD"],
+        [...fetchArgs, "origin", options.fetchRef ?? "HEAD"],
         {
           cwd: repoDir,
           home: home.home,

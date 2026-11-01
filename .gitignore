@@ -10,3 +10,4 @@ apps/web/coverage/
 !.env.example
 !.env.postgres.example
 /.domino-a-b-review/
+/.domino/

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolvePublicRepository } from "../../apps/api/src/github.ts";
+import { resolvePublicRepository, resolvePullRequest } from "../../apps/api/src/github.ts";
 
 const repository = {
   id: 123,
@@ -59,5 +59,32 @@ describe("public GitHub resolver", () => {
     await expect(
       resolvePublicRepository("https://github.com/owner/repo"),
     ).rejects.toMatchObject({ code: "GITHUB_RESPONSE_TOO_LARGE" });
+  });
+});
+
+describe("PR revision and source boundaries", () => {
+  const sha = "a".repeat(40), head = "b".repeat(40);
+  const pr = { number: 12, html_url: "https://github.com/owner/repo/pull/12", base: { sha }, head: { sha: head } };
+  function mock(final = pr, url = pr.html_url, filename = "new.ts") {
+    const fn = vi.fn().mockResolvedValueOnce(Response.json(repository)).mockResolvedValueOnce(Response.json({ sha }))
+      .mockResolvedValueOnce(Response.json({ ...pr, html_url: url }))
+      .mockResolvedValueOnce(Response.json([{ filename, previous_filename: "old.ts", status: "renamed" }]))
+      .mockResolvedValueOnce(Response.json(final));
+    vi.stubGlobal("fetch", fn); return fn;
+  }
+  it("retains stable repository identity and rename metadata at a confirmed PR head", async () => {
+    mock(); const result = await resolvePullRequest("https://github.com/owner/repo", 12);
+    expect(result.repositoryId).toBe(123);
+    expect(result.fileChanges).toEqual([{ filename: "new.ts", previousFilename: "old.ts", status: "renamed" }]);
+  });
+  it("rejects a head that changes while changed files are fetched", async () => {
+    mock({ ...pr, head: { sha: "c".repeat(40) } });
+    await expect(resolvePullRequest("https://github.com/owner/repo", 12)).rejects.toMatchObject({ code: "INDEX_STALE" });
+  });
+  it("rejects source links from another repository and unsafe changed paths", async () => {
+    mock(pr, "https://github.com/other/repo/pull/12");
+    await expect(resolvePullRequest("https://github.com/owner/repo", 12)).rejects.toMatchObject({ code: "GITHUB_INVALID_RESPONSE" });
+    mock(pr, pr.html_url, "../secret.ts");
+    await expect(resolvePullRequest("https://github.com/owner/repo", 12)).rejects.toMatchObject({ code: "GITHUB_INVALID_RESPONSE" });
   });
 });

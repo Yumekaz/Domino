@@ -505,7 +505,13 @@ function RepoShell() {
             <ErrorState error={query.error} retry={() => query.refetch()} />
           ) : (
             <>
-              {job && <JobStatus repoId={repoId} jobId={job} />}
+              {job && (
+                <JobStatus
+                  repoId={repoId}
+                  jobId={job}
+                  coverageWarnings={query.data.snapshot?.warnings ?? []}
+                />
+              )}
               {!!query.data.snapshot?.warnings.length && (
                 <details className="index-notes">
                   <summary>
@@ -532,7 +538,15 @@ function RepoShell() {
     </div>
   );
 }
-function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
+function JobStatus({
+  repoId,
+  jobId,
+  coverageWarnings,
+}: {
+  repoId: string;
+  jobId: string;
+  coverageWarnings: readonly string[];
+}) {
   const client = useQueryClient();
   const job = useQuery({
     queryKey: ['job', repoId, jobId],
@@ -548,6 +562,15 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
     if (job.data && ['ready', 'completed', 'partial'].includes(job.data.status))
       void client.invalidateQueries({ queryKey: ['repository', repoId] });
   }, [job.data, repoId, client]);
+  const published = !!job.data && ['ready', 'completed', 'partial'].includes(job.data.status);
+  const warnings =
+    job.data?.warnings.filter((warning) => !published || !coverageWarnings.includes(warning)) ?? [];
+  const phases: Record<string, string> = {
+    ready: 'Index published',
+    completed: 'Index published',
+    partial: 'Index published with coverage limits',
+  };
+  const phase = job.data ? (phases[job.data.status] ?? job.data.phase.replaceAll('_', ' ')) : '';
   return (
     <section className="job-status" aria-live="polite">
       {job.isPending ? (
@@ -558,21 +581,21 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
         <>
           <div className="flex items-center gap-3">
             <Radio size={18} />
-            <strong>{job.data.phase}</strong>
+            <strong>{phase}</strong>
             <Badge>{job.data.status}</Badge>
           </div>
           {job.data.progress !== undefined && (
             <progress max="100" value={job.data.progress} aria-label="Reported import progress" />
           )}
           {job.data.error && <p className="field-error">{job.data.error}</p>}
-          {job.data.warnings.length > 0 && (
+          {warnings.length > 0 && (
             <details className="index-notes">
               <summary>
                 <Shield size={15} />
                 <span>Review import warnings</span>
-                <Badge tone="orange">{job.data.warnings.length} NOTES</Badge>
+                <Badge tone="orange">{warnings.length} NOTES</Badge>
               </summary>
-              <Warnings warnings={job.data.warnings} />
+              <Warnings warnings={warnings} />
             </details>
           )}
           {job.data.status === 'failed' && (
@@ -583,6 +606,20 @@ function JobStatus({ repoId, jobId }: { repoId: string; jobId: string }) {
     </section>
   );
 }
+const coverageNames: Record<string, string> = {
+  issues: 'Issues',
+  commits: 'GitHub commits',
+  reviews: 'Reviews in indexed PRs',
+  comments: 'Discussion comments',
+  documents: 'Documents',
+  retrieval: 'Indexed excerpts',
+  timelines: 'Timeline records',
+  gitHistory: 'Git history',
+  structural: 'JS / TS imports',
+  changedFiles: 'PR file records',
+  pullRequests: 'Pull requests',
+  codeIntelligence: 'Symbol excerpts',
+};
 function Overview() {
   const { repository, repoId, path } = useRepo();
   const navigate = useNavigate();
@@ -621,7 +658,10 @@ function Overview() {
         <div className="coverage-grid">
           {snapshot.coverage.map((c) => (
             <div key={c.kind}>
-              <Eyebrow>{c.kind}</Eyebrow>
+              <Eyebrow>
+                {coverageNames[c.kind] ??
+                  c.kind.replace(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ')}
+              </Eyebrow>
               <strong>
                 {c.indexed.toLocaleString()}
                 <small>{c.total !== undefined ? ` / ${c.total.toLocaleString()}` : ''}</small>
